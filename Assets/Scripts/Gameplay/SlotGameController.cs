@@ -40,6 +40,11 @@ namespace SerenaysGambit
         private readonly Image[,] _cellImages = new Image[GameBalance.GridRows, GameBalance.GridColumns];
         private readonly TextMeshProUGUI[,] _cellTexts = new TextMeshProUGUI[GameBalance.GridRows, GameBalance.GridColumns];
 
+        private RectTransform _thresholdBarRect;
+        private Image _thresholdBarBackground;
+        private Image _thresholdBarFill;
+        private TextMeshProUGUI _thresholdBarText;
+
         private Button _spin1xButton;
         private Button _spin5xButton;
         private Button _spin10xButton;
@@ -67,6 +72,11 @@ namespace SerenaysGambit
             {
                 enabled = false;
                 return;
+            }
+
+            if (_targetText != null)
+            {
+                _targetText.gameObject.SetActive(false);
             }
 
             var canvas = GameObject.Find("GameCanvas");
@@ -259,6 +269,11 @@ namespace SerenaysGambit
                 _shopWalletText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/ShopWalletText");
                 _ownedUpgradesText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/OwnedUpgradesText");
 
+                _thresholdBarRect = Require<RectTransform>(root, "MainContent/SlotMachinePanel/ThresholdBar");
+                _thresholdBarBackground = Require<Image>(root, "MainContent/SlotMachinePanel/ThresholdBar");
+                _thresholdBarFill = Require<Image>(root, "MainContent/SlotMachinePanel/ThresholdBar/Fill");
+                _thresholdBarText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ThresholdBar/Label");
+
                 _lever = Require<SlotLever>(root, "MainContent/SlotMachinePanel/LeverPanel/Lever");
                 _spin1xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin1xButton");
                 _spin5xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin5xButton");
@@ -314,6 +329,7 @@ namespace SerenaysGambit
         {
             _cashText.text = "Cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
             _targetText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(_state.CurrentTargetKurus);
+            UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
             _rollsText.text = "Rolls: " + _state.RollsRemaining;
             _organsText.text = "Organs: " + _state.RemainingOrgans + "/" + _state.Config.OrganCount + " (" + OrganStatusText() + ")";
             _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
@@ -481,6 +497,7 @@ namespace SerenaysGambit
             BigInteger accumulatedPayout = BigInteger.Zero;
             var canvas = GameObject.Find("GameCanvas");
             Transform spawnParent = canvas != null ? canvas.transform : transform;
+            BigInteger startCash = _state.CashKurus - result.Score.PayoutKurus;
 
             for (int i = 0; i < wins.Count; i++)
             {
@@ -547,7 +564,8 @@ namespace SerenaysGambit
                         Sequence seq = DOTween.Sequence();
                         seq.Append(coin.transform.DOMove(midPos, totalDuration * 0.3f).SetEase(Ease.OutQuad));
                         seq.Join(coin.transform.DOPunchScale(Vector3.one * 0.2f, totalDuration * 0.3f));
-                        seq.Append(coin.transform.DOMove(_payoutText.transform.position, totalDuration * 0.7f).SetEase(Ease.InQuad));
+                        Vector3 targetPos = _thresholdBarRect != null ? _thresholdBarRect.position : _payoutText.transform.position;
+                        seq.Append(coin.transform.DOMove(targetPos, totalDuration * 0.7f).SetEase(Ease.InQuad));
                         seq.Join(coin.transform.DOScale(Vector3.zero, totalDuration * 0.7f).SetEase(Ease.InQuad));
                         seq.OnComplete(() => Destroy(coin));
                     }
@@ -590,6 +608,7 @@ namespace SerenaysGambit
                         double doubleProgress = (double)globalProgress;
                         BigInteger currentDisplay = startPayout + (BigInteger)((double)(accumulatedPayout - startPayout) * doubleProgress);
                         _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+                        UpdateThresholdBar(startCash + currentDisplay, _state.CurrentTargetKurus);
 
                         yield return null;
                     }
@@ -628,6 +647,7 @@ namespace SerenaysGambit
             // Finally, snap payout text and show final results summary
             _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
             _resultText.text = BuildResultSummary(result);
+            UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
         }
 
         private GameObject SpawnCoin(Vector3 spawnPosition, Transform parent)
@@ -717,6 +737,49 @@ namespace SerenaysGambit
             }
 
             return component;
+        }
+
+        private void UpdateThresholdBar(BigInteger currentCash, BigInteger targetKurus)
+        {
+            if (_thresholdBarFill == null || _thresholdBarBackground == null || _thresholdBarText == null)
+            {
+                return;
+            }
+
+            if (targetKurus <= 0)
+            {
+                _thresholdBarFill.fillAmount = 0f;
+                _thresholdBarBackground.color = new Color(0.12f, 0.12f, 0.12f, 1f);
+                _thresholdBarText.text = "Threshold: " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
+                return;
+            }
+
+            BigInteger fillIndexBI = currentCash / targetKurus;
+            BigInteger remainingBI = currentCash % targetKurus;
+
+            int fillIndex = (int)fillIndexBI;
+            float fraction = (float)((double)remainingBI / (double)targetKurus);
+
+            Color backgroundCol = GetThresholdLayerColor(fillIndex - 1);
+            Color fillCol = GetThresholdLayerColor(fillIndex);
+
+            _thresholdBarBackground.color = backgroundCol;
+            _thresholdBarFill.color = fillCol;
+            _thresholdBarFill.fillAmount = fraction;
+
+            _thresholdBarText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
+        }
+
+        private Color GetThresholdLayerColor(int layer)
+        {
+            if (layer < 0)
+            {
+                return new Color(0.12f, 0.12f, 0.12f, 1f);
+            }
+
+            Color baseGold = new Color(1f, 0.82f, 0.15f, 1f);
+            float factor = Mathf.Max(0.2f, 1.0f - 0.15f * layer);
+            return new Color(baseGold.r * factor, baseGold.g * factor, baseGold.b * factor, 1f);
         }
 
         private static Transform RequireTransform(Transform root, string path)
