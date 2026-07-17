@@ -1,0 +1,346 @@
+using System.Collections.Generic;
+using System.Numerics;
+using NUnit.Framework;
+
+namespace SerenaysGambit.Tests
+{
+    public sealed class SlotGameRulesTests
+    {
+        [Test]
+        public void ReelStateWrapsTheFiveFaceStripForTheVisibleRows()
+        {
+            var reel = new ReelState(GameBalance.InitialReels[0], 4);
+
+            Assert.That(reel.VisibleFaceAt(0), Is.EqualTo(SymbolKind.Joker));
+            Assert.That(reel.VisibleFaceAt(1), Is.EqualTo(SymbolKind.Strawberry));
+            Assert.That(reel.VisibleFaceAt(2), Is.EqualTo(SymbolKind.Strawberry));
+        }
+
+        [Test]
+        public void AllEightConfiguredPaylinesScoreOnAFullMatchingBoard()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+            };
+
+            var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
+
+            Assert.That(GameBalance.Paylines.Count, Is.EqualTo(8));
+            Assert.That(score.Wins.Count, Is.EqualTo(8));
+            Assert.That(score.Wins[0].Payline.Name, Is.EqualTo("Top row"));
+            Assert.That(score.Wins[3].Payline.Name, Is.EqualTo("Left reel"));
+            Assert.That(score.Wins[6].Payline.Name, Is.EqualTo("Top-left diagonal"));
+            Assert.That(score.Wins[7].Payline.Name, Is.EqualTo("Top-right diagonal"));
+        }
+
+        [Test]
+        public void MiddleJokerResolvesAsTheMatchingRegularSymbol()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry },
+                { SymbolKind.Strawberry, SymbolKind.Joker, SymbolKind.Strawberry },
+                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry }
+            };
+
+            var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
+            PaylineWin middleRow = null;
+            foreach (var win in score.Wins)
+            {
+                if (win.Payline.Name == "Middle row")
+                {
+                    middleRow = win;
+                    break;
+                }
+            }
+
+            Assert.That(middleRow, Is.Not.Null);
+            Assert.That(middleRow.ResolvedSymbol, Is.EqualTo(SymbolKind.Strawberry));
+            Assert.That(middleRow.IsTripleJoker, Is.False);
+        }
+
+        [Test]
+        public void TripleJokerUsesTheSpecialMultiplierOnEveryWinningLine()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
+                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
+                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker }
+            };
+
+            var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
+
+            Assert.That(score.Wins.Count, Is.EqualTo(8));
+            Assert.That(score.ComboMultiplier, Is.EqualTo(9));
+            Assert.That(score.PayoutKurus, Is.EqualTo(new BigInteger(3378240)));
+            Assert.That(score.Wins[0].IsTripleJoker, Is.True);
+        }
+
+        [TestCase(0, 1)]
+        [TestCase(1, 1)]
+        [TestCase(2, 4)]
+        [TestCase(3, 9)]
+        [TestCase(8, 9)]
+        public void ComboMultiplierUsesTheConfiguredRule(int winCount, int expectedMultiplier)
+        {
+            Assert.That(SlotScoring.ComboMultiplierFor(winCount), Is.EqualTo(expectedMultiplier));
+        }
+
+        [Test]
+        public void BatchFactorMultipliesTheFinalPayout()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+            };
+
+            var modifiers = new RunModifiers();
+            var single = SlotScoring.Evaluate(grid, modifiers, 1);
+            var batch = SlotScoring.Evaluate(grid, modifiers, 5);
+
+            Assert.That(batch.PayoutKurus, Is.EqualTo(single.PayoutKurus * 5));
+        }
+
+        [Test]
+        public void MoneyMultiplierAppliesAfterLineAndComboCalculation()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+            };
+
+            var modifiers = new RunModifiers();
+            var baseline = SlotScoring.Evaluate(grid, modifiers, 1);
+            modifiers.DoubleMoneyMultiplier();
+            var doubled = SlotScoring.Evaluate(grid, modifiers, 1);
+            var doubledBatch = SlotScoring.Evaluate(grid, modifiers, 5);
+
+            Assert.That(doubled.PayoutKurus, Is.EqualTo(baseline.PayoutKurus * 2));
+            Assert.That(doubledBatch.PayoutKurus, Is.EqualTo(baseline.PayoutKurus * 10));
+        }
+
+        [Test]
+        public void MagnetCompletesTheHighestValueEligibleNearMiss()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Cherry },
+                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Strawberry },
+                { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Cherry }
+            };
+            var modifiers = new RunModifiers();
+            modifiers.IncreaseMagnetTier();
+
+            var score = SlotScoring.Evaluate(grid, modifiers, 1);
+
+            Assert.That(score.Wins.Count, Is.EqualTo(1));
+            Assert.That(score.Wins[0].IsMagnetCompletion, Is.True);
+            Assert.That(score.Wins[0].Payline.Name, Is.EqualTo("Middle row"));
+            Assert.That(score.Wins[0].ResolvedSymbol, Is.EqualTo(SymbolKind.Cherry));
+        }
+
+        [Test]
+        public void BatchSpinConsumesTheRequestedNumberOfRolls()
+        {
+            var engine = new SlotGameEngine(1, CreateNoWinGrid);
+            var state = engine.CreateNewRun();
+            state.RollsRemaining = 6;
+
+            var result = engine.TrySpin(state, 5);
+
+            Assert.That(result.Accepted, Is.True);
+            Assert.That(result.Score.PayoutKurus, Is.EqualTo(BigInteger.Zero));
+            Assert.That(state.RollsRemaining, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ThresholdPaymentCarriesOnlyTheSurplusAndClearsTemporaryFreeSpins()
+        {
+            var engine = new SlotGameEngine(7);
+            var state = engine.CreateNewRun();
+            state.Modifiers.AddFreeSpins(GameBalance.FreeSpinBundle);
+            state.CashKurus = state.CurrentTargetKurus + 12345;
+
+            var settled = engine.TrySettleThreshold(state);
+
+            Assert.That(settled, Is.True);
+            Assert.That(state.ThresholdLevel, Is.EqualTo(2));
+            Assert.That(state.CashKurus, Is.EqualTo(new BigInteger(12345)));
+            Assert.That(state.Modifiers.TemporaryFreeSpins, Is.EqualTo(0));
+            Assert.That(state.RollsRemaining, Is.EqualTo(GameBalance.BaseRolls));
+        }
+
+        [Test]
+        public void FailedAttemptRetainsTheRunAndAwardsOneRefreshTicket()
+        {
+            var engine = new SlotGameEngine(11);
+            var state = engine.CreateNewRun();
+            state.RollsRemaining = 0;
+
+            string lostOrgan;
+            var failed = engine.ResolveFailureIfOutOfRolls(state, out lostOrgan);
+
+            Assert.That(failed, Is.True);
+            Assert.That(lostOrgan, Is.EqualTo("Mide"));
+            Assert.That(state.OrganLosses, Is.EqualTo(1));
+            Assert.That(state.RefreshTickets, Is.EqualTo(1));
+            Assert.That(state.RollsRemaining, Is.EqualTo(GameBalance.BaseRolls));
+            Assert.That(state.Phase, Is.EqualTo(RunPhase.Playing));
+        }
+
+        [Test]
+        public void FifthFailedAttemptLosesKalpAndEndsTheRun()
+        {
+            var engine = new SlotGameEngine(11);
+            var state = engine.CreateNewRun();
+            string lostOrgan = string.Empty;
+
+            for (var attempt = 0; attempt < GameBalance.OrganCount; attempt++)
+            {
+                state.RollsRemaining = 0;
+                Assert.That(engine.ResolveFailureIfOutOfRolls(state, out lostOrgan), Is.True);
+            }
+
+            Assert.That(lostOrgan, Is.EqualTo("Kalp"));
+            Assert.That(state.OrganLosses, Is.EqualTo(5));
+            Assert.That(state.RefreshTickets, Is.EqualTo(4));
+            Assert.That(state.Phase, Is.EqualTo(RunPhase.GameOver));
+        }
+
+        [Test]
+        public void RefreshTicketRerollsOnlyUnsoldOffers()
+        {
+            var engine = new SlotGameEngine(13);
+            var state = engine.CreateNewRun();
+            state.CashKurus = state.ShopOffers[0].CostKurus;
+            string message;
+
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
+            var purchasedOffer = state.ShopOffers[0];
+            state.RollsRemaining = 0;
+            string lostOrgan;
+            engine.ResolveFailureIfOutOfRolls(state, out lostOrgan);
+
+            Assert.That(engine.TryRefreshShop(state, out message), Is.True);
+            Assert.That(state.RefreshTickets, Is.EqualTo(0));
+            Assert.That(state.ShopOffers[0], Is.SameAs(purchasedOffer));
+            Assert.That(state.ShopOffers[0].Purchased, Is.True);
+            Assert.That(state.ShopOffers.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void PermanentUpgradePersistsAcrossFailureAndThresholdCompletion()
+        {
+            var engine = new SlotGameEngine(17);
+            var state = engine.CreateNewRun();
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.MoneyMultiplier, BigInteger.Zero, "Money Output x2", "Test offer"));
+            state.CashKurus = BigInteger.Zero;
+            string message;
+
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
+            state.RollsRemaining = 0;
+            string lostOrgan;
+            engine.ResolveFailureIfOutOfRolls(state, out lostOrgan);
+            state.CashKurus = state.CurrentTargetKurus;
+
+            Assert.That(engine.TrySettleThreshold(state), Is.True);
+            Assert.That(state.Modifiers.MoneyMultiplier, Is.EqualTo(new BigInteger(2)));
+            Assert.That(state.ThresholdLevel, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AuthoredConfigDrivesRunValuesAndUpgradesNeverChangeReelFaces()
+        {
+            var configuredReels = new[]
+            {
+                new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry }
+            };
+            var config = new GameRulesConfig(configuredReels, 3, 7, 12, 3, 4, 6, 2);
+            var engine = new SlotGameEngine(23, config);
+            var state = engine.CreateNewRun();
+            var firstStripBeforeUpgrade = (SymbolKind[])config.ReelStripAt(0).Clone();
+
+            Assert.That(state.RollsRemaining, Is.EqualTo(12));
+            Assert.That(state.RemainingOrgans, Is.EqualTo(3));
+            Assert.That(state.Modifiers.StrawberryValue, Is.EqualTo(3));
+            Assert.That(state.Modifiers.CherryValue, Is.EqualTo(7));
+
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, BigInteger.Zero, "Strawberry Value +1x", "Test offer"));
+            string message;
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
+            Assert.That(state.Modifiers.StrawberryValue, Is.EqualTo(4));
+            Assert.That(config.ReelStripAt(0), Is.EqualTo(firstStripBeforeUpgrade));
+
+            var spin = engine.TrySpin(state, 1);
+            Assert.That(spin.Accepted, Is.True);
+            for (var row = 0; row < GameBalance.GridRows; row++)
+            {
+                for (var column = 0; column < GameBalance.GridColumns; column++)
+                {
+                    Assert.That(spin.Grid[row, column], Is.EqualTo(SymbolKind.Cherry));
+                }
+            }
+
+            Assert.That(state.Modifiers.IncreaseMagnetTier(), Is.True);
+            Assert.That(state.Modifiers.IncreaseMagnetTier(), Is.True);
+            Assert.That(state.Modifiers.IncreaseMagnetTier(), Is.False);
+        }
+
+        [Test]
+        public void AuthoredShopCopyIsUsedForGeneratedOffers()
+        {
+            var texts = new Dictionary<ShopOfferKind, ShopItemText>();
+            foreach (ShopOfferKind kind in System.Enum.GetValues(typeof(ShopOfferKind)))
+            {
+                texts.Add(kind, new ShopItemText("Authored " + kind, "Description " + kind));
+            }
+
+            var config = new GameRulesConfig(
+                GameBalance.InitialReels,
+                1,
+                5,
+                GameBalance.BaseRolls,
+                GameBalance.OrganCount,
+                GameBalance.MaxThresholdLevel,
+                GameBalance.FreeSpinBundle,
+                GameBalance.MaxMagnetTier,
+                texts);
+            var state = new SlotGameEngine(31, config).CreateNewRun();
+            ShopOffer authoredOffer = null;
+            foreach (var offer in state.ShopOffers)
+            {
+                if (offer.Kind != ShopOfferKind.MagnetTier)
+                {
+                    authoredOffer = offer;
+                    break;
+                }
+            }
+
+            Assert.That(authoredOffer, Is.Not.Null);
+            Assert.That(authoredOffer.Title, Is.EqualTo("Authored " + authoredOffer.Kind));
+            Assert.That(authoredOffer.Description, Is.EqualTo("Description " + authoredOffer.Kind));
+        }
+
+        private static SymbolKind[,] CreateNoWinGrid()
+        {
+            return new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Strawberry },
+                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry },
+                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry }
+            };
+        }
+    }
+}
