@@ -16,6 +16,18 @@ namespace SerenaysGambit
             var defaults = GameRulesConfig.CreateDefault();
             var shopTexts = CreateShopTexts(shopItems);
 
+            var customStartingValues = new Dictionary<SymbolKind, int>();
+            if (symbols != null)
+            {
+                foreach (var def in symbols)
+                {
+                    if (def != null)
+                    {
+                        customStartingValues[def.Symbol] = def.StartingValue;
+                    }
+                }
+            }
+
             return new GameRulesConfig(
                 ExtractReelStrips(reelDefinitions, defaults),
                 FindSymbolValue(symbols, SymbolKind.Strawberry, defaults.StrawberryStartingValue),
@@ -25,7 +37,8 @@ namespace SerenaysGambit
                 PositiveOrDefault(balance == null ? 0 : balance.ThresholdCount, defaults.ThresholdCount),
                 NonNegativeOrDefault(balance == null ? -1 : balance.FreeSpinBundle, defaults.FreeSpinBundle),
                 PositiveOrDefault(balance == null ? 0 : balance.MaxMagnetTier, defaults.MaxMagnetTier),
-                shopTexts);
+                shopTexts,
+                customStartingValues);
         }
 
         private static SymbolKind[][] ExtractReelStrips(ReelDefinition[] definitions, GameRulesConfig defaults)

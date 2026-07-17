@@ -33,13 +33,18 @@ namespace SerenaysGambit.Tests
 
             Assert.That(Object.FindObjectOfType<EventSystem>(), Is.Not.Null);
             Assert.That(canvas.transform.Find("MainContent/SlotMachinePanel/SlotGrid"), Is.Not.Null);
-            var batchControls = canvas.transform.Find("MainContent/SlotMachinePanel/BatchControls");
+            var leverPanel = canvas.transform.Find("MainContent/SlotMachinePanel/LeverPanel");
+            Assert.That(leverPanel, Is.Not.Null);
+            var batchControls = leverPanel.Find("BatchControls");
             var offerList = canvas.transform.Find("MainContent/SerenayShopPanel/OfferList");
             Assert.That(batchControls, Is.Not.Null);
             Assert.That(offerList, Is.Not.Null);
-            Assert.That(batchControls.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+            Assert.That(batchControls.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
             Assert.That(offerList.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
-            Assert.That(batchControls.childCount, Is.EqualTo(3));
+            var buttonsRow = batchControls.Find("ButtonsRow");
+            Assert.That(buttonsRow, Is.Not.Null);
+            Assert.That(buttonsRow.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+            Assert.That(buttonsRow.childCount, Is.EqualTo(3));
             Assert.That(offerList.childCount, Is.EqualTo(3));
         }
     }

@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 645baf3489d7c4e929d5abc19296b533, type: 3}
   m_Name: BaseRollMultiplierX10
   m_EditorClassIdentifier: 
-  _kind: 5
+  _kind: 8
   _displayName: Base Rolls x10
   _description: Raises the ten-roll base to one hundred for this run.

@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 645baf3489d7c4e929d5abc19296b533, type: 3}
   m_Name: MoneyMultiplier
   m_EditorClassIdentifier: 
-  _kind: 2
+  _kind: 5
   _displayName: Money Output x2
   _description: Doubles all future final TL payouts.

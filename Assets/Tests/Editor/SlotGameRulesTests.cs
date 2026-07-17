@@ -9,7 +9,8 @@ namespace SerenaysGambit.Tests
         [Test]
         public void ReelStateWrapsTheFiveFaceStripForTheVisibleRows()
         {
-            var reel = new ReelState(GameBalance.InitialReels[0], 4);
+            var mockStrip = new[] { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Joker };
+            var reel = new ReelState(mockStrip, 4);
 
             Assert.That(reel.VisibleFaceAt(0), Is.EqualTo(SymbolKind.Joker));
             Assert.That(reel.VisibleFaceAt(1), Is.EqualTo(SymbolKind.Strawberry));

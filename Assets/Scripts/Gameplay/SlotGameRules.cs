@@ -9,6 +9,9 @@ namespace SerenaysGambit
     {
         Strawberry,
         Cherry,
+        Banana,
+        Orange,
+        Apple,
         Joker
     }
 
@@ -23,6 +26,9 @@ namespace SerenaysGambit
     {
         StrawberryValue,
         CherryValue,
+        BananaValue,
+        OrangeValue,
+        AppleValue,
         MoneyMultiplier,
         FreeSpins,
         BaseRollMultiplierX2,
@@ -100,9 +106,9 @@ namespace SerenaysGambit
 
         public static readonly SymbolKind[][] InitialReels =
         {
-            new[] { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Joker },
-            new[] { SymbolKind.Cherry, SymbolKind.Joker, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-            new[] { SymbolKind.Joker, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Cherry }
+            new[] { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana, SymbolKind.Orange, SymbolKind.Joker },
+            new[] { SymbolKind.Cherry, SymbolKind.Banana, SymbolKind.Orange, SymbolKind.Apple, SymbolKind.Joker },
+            new[] { SymbolKind.Banana, SymbolKind.Orange, SymbolKind.Apple, SymbolKind.Strawberry, SymbolKind.Joker }
         };
 
         public static readonly IReadOnlyList<Payline> Paylines = new List<Payline>
@@ -160,6 +166,8 @@ namespace SerenaysGambit
         private readonly SymbolKind[][] _reelStrips;
         private readonly Dictionary<ShopOfferKind, ShopItemText> _shopItemTexts;
 
+        private readonly Dictionary<SymbolKind, int> _startingValues = new Dictionary<SymbolKind, int>();
+
         public GameRulesConfig(
             IEnumerable<SymbolKind[]> reelStrips,
             int strawberryStartingValue,
@@ -169,7 +177,8 @@ namespace SerenaysGambit
             int thresholdCount,
             int freeSpinBundle,
             int maxMagnetTier,
-            IDictionary<ShopOfferKind, ShopItemText> shopItemTexts = null)
+            IDictionary<ShopOfferKind, ShopItemText> shopItemTexts = null,
+            IDictionary<SymbolKind, int> customStartingValues = null)
         {
             if (reelStrips == null)
             {
@@ -207,6 +216,27 @@ namespace SerenaysGambit
             _shopItemTexts = shopItemTexts == null
                 ? new Dictionary<ShopOfferKind, ShopItemText>()
                 : new Dictionary<ShopOfferKind, ShopItemText>(shopItemTexts);
+
+            _startingValues[SymbolKind.Strawberry] = strawberryStartingValue;
+            _startingValues[SymbolKind.Cherry] = cherryStartingValue;
+            _startingValues[SymbolKind.Banana] = 10;
+            _startingValues[SymbolKind.Orange] = 15;
+            _startingValues[SymbolKind.Apple] = 20;
+            _startingValues[SymbolKind.Joker] = 0;
+
+            if (customStartingValues != null)
+            {
+                foreach (var kvp in customStartingValues)
+                {
+                    _startingValues[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+
+        public int GetStartingValue(SymbolKind symbol)
+        {
+            int val;
+            return _startingValues.TryGetValue(symbol, out val) ? val : 0;
         }
 
         public int StrawberryStartingValue { get; private set; }
@@ -260,6 +290,7 @@ namespace SerenaysGambit
     public sealed class RunModifiers
     {
         private readonly GameRulesConfig _config;
+        private readonly Dictionary<SymbolKind, int> _symbolValues = new Dictionary<SymbolKind, int>();
 
         public RunModifiers() : this(GameRulesConfig.CreateDefault())
         {
@@ -268,16 +299,22 @@ namespace SerenaysGambit
         public RunModifiers(GameRulesConfig config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            StrawberryValue = config.StrawberryStartingValue;
-            CherryValue = config.CherryStartingValue;
+            _symbolValues[SymbolKind.Strawberry] = config.GetStartingValue(SymbolKind.Strawberry);
+            _symbolValues[SymbolKind.Cherry] = config.GetStartingValue(SymbolKind.Cherry);
+            _symbolValues[SymbolKind.Banana] = config.GetStartingValue(SymbolKind.Banana);
+            _symbolValues[SymbolKind.Orange] = config.GetStartingValue(SymbolKind.Orange);
+            _symbolValues[SymbolKind.Apple] = config.GetStartingValue(SymbolKind.Apple);
             MoneyMultiplier = BigInteger.One;
             BaseRollMultiplier = 1;
             TemporaryFreeSpins = 0;
             MagnetTier = 0;
         }
 
-        public int StrawberryValue { get; private set; }
-        public int CherryValue { get; private set; }
+        public int StrawberryValue { get { return SymbolValue(SymbolKind.Strawberry); } }
+        public int CherryValue { get { return SymbolValue(SymbolKind.Cherry); } }
+        public int BananaValue { get { return SymbolValue(SymbolKind.Banana); } }
+        public int OrangeValue { get { return SymbolValue(SymbolKind.Orange); } }
+        public int AppleValue { get { return SymbolValue(SymbolKind.Apple); } }
         public BigInteger MoneyMultiplier { get; private set; }
         public int BaseRollMultiplier { get; private set; }
         public int TemporaryFreeSpins { get; private set; }
@@ -290,23 +327,15 @@ namespace SerenaysGambit
 
         public int SymbolValue(SymbolKind symbol)
         {
-            switch (symbol)
-            {
-                case SymbolKind.Strawberry: return StrawberryValue;
-                case SymbolKind.Cherry: return CherryValue;
-                default: return 0;
-            }
+            int val;
+            return _symbolValues.TryGetValue(symbol, out val) ? val : 0;
         }
 
         public void ImproveSymbol(SymbolKind symbol)
         {
-            if (symbol == SymbolKind.Strawberry)
+            if (_symbolValues.ContainsKey(symbol))
             {
-                StrawberryValue++;
-            }
-            else if (symbol == SymbolKind.Cherry)
-            {
-                CherryValue++;
+                _symbolValues[symbol]++;
             }
         }
 
@@ -807,6 +836,15 @@ namespace SerenaysGambit
                 case ShopOfferKind.CherryValue:
                     state.Modifiers.ImproveSymbol(SymbolKind.Cherry);
                     break;
+                case ShopOfferKind.BananaValue:
+                    state.Modifiers.ImproveSymbol(SymbolKind.Banana);
+                    break;
+                case ShopOfferKind.OrangeValue:
+                    state.Modifiers.ImproveSymbol(SymbolKind.Orange);
+                    break;
+                case ShopOfferKind.AppleValue:
+                    state.Modifiers.ImproveSymbol(SymbolKind.Apple);
+                    break;
                 case ShopOfferKind.MoneyMultiplier:
                     state.Modifiers.DoubleMoneyMultiplier();
                     break;
@@ -895,6 +933,9 @@ namespace SerenaysGambit
             {
                 ShopOfferKind.StrawberryValue,
                 ShopOfferKind.CherryValue,
+                ShopOfferKind.BananaValue,
+                ShopOfferKind.OrangeValue,
+                ShopOfferKind.AppleValue,
                 ShopOfferKind.MoneyMultiplier,
                 ShopOfferKind.FreeSpins
             };
@@ -959,6 +1000,21 @@ namespace SerenaysGambit
                     title = "Cherry Value +1x";
                     description = "Permanently raises Cherry line value.";
                     cost = target / 16;
+                    break;
+                case ShopOfferKind.BananaValue:
+                    title = "Banana Value +1x";
+                    description = "Permanently raises Banana line value.";
+                    cost = target / 12;
+                    break;
+                case ShopOfferKind.OrangeValue:
+                    title = "Orange Value +1x";
+                    description = "Permanently raises Orange line value.";
+                    cost = target / 10;
+                    break;
+                case ShopOfferKind.AppleValue:
+                    title = "Apple Value +1x";
+                    description = "Permanently raises Apple line value.";
+                    cost = target / 8;
                     break;
                 case ShopOfferKind.MoneyMultiplier:
                     title = "Money Output x2";

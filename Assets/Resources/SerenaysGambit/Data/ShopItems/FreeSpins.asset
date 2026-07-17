@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 645baf3489d7c4e929d5abc19296b533, type: 3}
   m_Name: FreeSpins
   m_EditorClassIdentifier: 
-  _kind: 3
+  _kind: 6
   _displayName: +20 Free Spins
   _description: Adds rolls until this threshold is cleared.

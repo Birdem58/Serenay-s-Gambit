@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e34ec55ef45ae4172a1df9d0fd91d172, type: 3}
   m_Name: Reel2
   m_EditorClassIdentifier: 
-  _faces: 0100000002000000000000000000000000000000
+  _faces: 0100000002000000030000000400000005000000

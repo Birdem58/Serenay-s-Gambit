@@ -1,8 +1,13 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Numerics;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
+using Vector3 = UnityEngine.Vector3;
+using Vector2 = UnityEngine.Vector2;
 
 namespace SerenaysGambit
 {
@@ -16,6 +21,9 @@ namespace SerenaysGambit
         private ShopItemDefinition[] _shopItemDefinitions;
         private BalanceDefinition _balanceDefinition;
         private GameRulesConfig _rulesConfig;
+
+        private readonly ReelScroller[] _reelScrollers = new ReelScroller[GameBalance.GridColumns];
+        private bool _isSpinAnimating;
 
         private TextMeshProUGUI _cashText;
         private TextMeshProUGUI _targetText;
@@ -41,6 +49,12 @@ namespace SerenaysGambit
         private GameObject _gameOverOverlay;
         private GameObject _victoryOverlay;
 
+        private SlotLever _lever;
+        [SerializeField] private GameObject _coinPrefab;
+        private int _currentBatchFactor = 1;
+        private readonly Color _buttonSelectedColor = new Color(0.2f, 0.62f, 0.3f, 1f); // Green
+        private readonly Color _buttonNormalColor = new Color(0.2f, 0.38f, 0.62f, 1f); // Blue
+
         private void Start()
         {
             _symbolDefinitions = Resources.LoadAll<SymbolDefinition>("SerenaysGambit/Data/Symbols");
@@ -55,12 +69,27 @@ namespace SerenaysGambit
                 return;
             }
 
+            var canvas = GameObject.Find("GameCanvas");
+            if (canvas != null)
+            {
+                for (var column = 0; column < GameBalance.GridColumns; column++)
+                {
+                    var reelTransform = canvas.transform.Find("MainContent/SlotMachinePanel/SlotGrid/Reel" + (column + 1));
+                    if (reelTransform != null)
+                    {
+                        var scroller = reelTransform.gameObject.AddComponent<ReelScroller>();
+                        scroller.Initialize(column, _rulesConfig.ReelStripAt(column), SymbolLabel, SymbolColor);
+                        _reelScrollers[column] = scroller;
+                    }
+                }
+            }
+
             StartNewRun();
         }
 
         private void Update()
         {
-            if (_state == null || _state.Phase != RunPhase.Playing)
+            if (_state == null || _state.Phase != RunPhase.Playing || _isSpinAnimating)
             {
                 return;
             }
@@ -94,17 +123,91 @@ namespace SerenaysGambit
 
         private void Spin(int batchFactor)
         {
+            _currentBatchFactor = batchFactor;
+            if (_lever != null)
+            {
+                _lever.IsAvailable = false;
+            }
             var result = _runService.TrySpin(_state, batchFactor);
-            _resultText.text = result.Message;
             if (!result.Accepted)
             {
+                _resultText.text = result.Message;
                 RefreshView();
                 return;
             }
 
+            StartCoroutine(DoSpinAnimation(result));
+        }
+
+        private IEnumerator DoSpinAnimation(SpinResult result)
+        {
+            _isSpinAnimating = true;
+
+            _spin1xButton.interactable = false;
+            _spin5xButton.interactable = false;
+            _spin10xButton.interactable = false;
+            _refreshButton.interactable = false;
+            for (var i = 0; i < _offerButtons.Length; i++)
+            {
+                _offerButtons[i].interactable = false;
+            }
+
+            float spinSpeed = 1800f;
+            for (var col = 0; col < GameBalance.GridColumns; col++)
+            {
+                if (_reelScrollers[col] != null)
+                {
+                    _reelScrollers[col].StartSpin(spinSpeed);
+                }
+            }
+
+            var stopDurations = new[] { 1.0f, 1.25f, 1.50f };
+            for (var col = 0; col < GameBalance.GridColumns; col++)
+            {
+                var capturedCol = col;
+                var strip = _rulesConfig.ReelStripAt(capturedCol);
+                var g0 = result.Grid[0, capturedCol];
+                var g1 = result.Grid[1, capturedCol];
+                var g2 = result.Grid[2, capturedCol];
+                var stopIndex = FindStopIndex(strip, g0, g1, g2);
+
+                if (_reelScrollers[capturedCol] != null)
+                {
+                    _reelScrollers[capturedCol].StopSpin(stopIndex, stopDurations[capturedCol], null);
+                }
+            }
+
+            while (true)
+            {
+                bool anyAnimating = false;
+                for (var col = 0; col < GameBalance.GridColumns; col++)
+                {
+                    if (_reelScrollers[col] != null && _reelScrollers[col].IsAnimating)
+                    {
+                        anyAnimating = true;
+                        break;
+                    }
+                }
+                if (!anyAnimating)
+                {
+                    break;
+                }
+                yield return null;
+            }
+
             UpdateGrid(result.Grid);
-            _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
-            _resultText.text = BuildResultSummary(result);
+
+            if (result.Score.Wins != null && result.Score.Wins.Count > 0)
+            {
+                yield return StartCoroutine(AnimateWinHighlighting(result));
+            }
+            else
+            {
+                _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+                _resultText.text = BuildResultSummary(result);
+            }
+
+            _isSpinAnimating = false;
 
             if (_state.Phase == RunPhase.GameOver)
             {
@@ -156,9 +259,10 @@ namespace SerenaysGambit
                 _shopWalletText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/ShopWalletText");
                 _ownedUpgradesText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/OwnedUpgradesText");
 
-                _spin1xButton = Require<Button>(root, "MainContent/SlotMachinePanel/BatchControls/Spin1xButton");
-                _spin5xButton = Require<Button>(root, "MainContent/SlotMachinePanel/BatchControls/Spin5xButton");
-                _spin10xButton = Require<Button>(root, "MainContent/SlotMachinePanel/BatchControls/Spin10xButton");
+                _lever = Require<SlotLever>(root, "MainContent/SlotMachinePanel/LeverPanel/Lever");
+                _spin1xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin1xButton");
+                _spin5xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin5xButton");
+                _spin10xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin10xButton");
                 _refreshButton = Require<Button>(root, "MainContent/SerenayShopPanel/RefreshButton");
                 _refreshLabel = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/RefreshButton/Label");
 
@@ -190,9 +294,10 @@ namespace SerenaysGambit
                 return false;
             }
 
-            _spin1xButton.onClick.AddListener(delegate { Spin(1); });
-            _spin5xButton.onClick.AddListener(delegate { Spin(5); });
-            _spin10xButton.onClick.AddListener(delegate { Spin(10); });
+            _lever.OnPulled = delegate { Spin(_currentBatchFactor); };
+            _spin1xButton.onClick.AddListener(delegate { _currentBatchFactor = 1; RefreshView(); });
+            _spin5xButton.onClick.AddListener(delegate { _currentBatchFactor = 5; RefreshView(); });
+            _spin10xButton.onClick.AddListener(delegate { _currentBatchFactor = 10; RefreshView(); });
             _refreshButton.onClick.AddListener(RefreshShop);
             _gameOverRestartButton.onClick.AddListener(StartNewRun);
             _victoryRestartButton.onClick.AddListener(StartNewRun);
@@ -213,11 +318,20 @@ namespace SerenaysGambit
             _organsText.text = "Organs: " + _state.RemainingOrgans + "/" + _state.Config.OrganCount + " (" + OrganStatusText() + ")";
             _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
-            _ownedUpgradesText.text = "Owned\nStrawberry: x" + _state.Modifiers.StrawberryValue + "\nCherry: x" + _state.Modifiers.CherryValue + "\nMoney: x" + _state.Modifiers.MoneyMultiplier + "\nBase rolls: x" + _state.Modifiers.BaseRollMultiplier + "\nFree spins: +" + _state.Modifiers.TemporaryFreeSpins + "\nMagnet: " + _state.Modifiers.MagnetTier + "/" + _state.Config.MaxMagnetTier;
+            _ownedUpgradesText.text = "Owned\nStrawberry: x" + _state.Modifiers.StrawberryValue + "\nCherry: x" + _state.Modifiers.CherryValue + "\nBanana: x" + _state.Modifiers.BananaValue + "\nOrange: x" + _state.Modifiers.OrangeValue + "\nApple: x" + _state.Modifiers.AppleValue + "\nMoney: x" + _state.Modifiers.MoneyMultiplier + "\nBase rolls: x" + _state.Modifiers.BaseRollMultiplier + "\nFree spins: +" + _state.Modifiers.TemporaryFreeSpins + "\nMagnet: " + _state.Modifiers.MagnetTier + "/" + _state.Config.MaxMagnetTier;
 
-            _spin1xButton.interactable = _state.Phase == RunPhase.Playing && _state.RollsRemaining >= 1;
-            _spin5xButton.interactable = _state.Phase == RunPhase.Playing && _state.RollsRemaining >= 5;
-            _spin10xButton.interactable = _state.Phase == RunPhase.Playing && _state.RollsRemaining >= 10;
+            _spin1xButton.image.color = _currentBatchFactor == 1 ? _buttonSelectedColor : _buttonNormalColor;
+            _spin5xButton.image.color = _currentBatchFactor == 5 ? _buttonSelectedColor : _buttonNormalColor;
+            _spin10xButton.image.color = _currentBatchFactor == 10 ? _buttonSelectedColor : _buttonNormalColor;
+
+            _spin1xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+            _spin5xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+            _spin10xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+
+            if (_lever != null)
+            {
+                _lever.IsAvailable = _state.Phase == RunPhase.Playing && _state.RollsRemaining >= _currentBatchFactor && !_isSpinAnimating;
+            }
             _refreshButton.interactable = _state.Phase == RunPhase.Playing && _state.RefreshTickets > 0;
             _refreshLabel.text = "Refresh shop (" + _state.RefreshTickets + ")";
 
@@ -277,6 +391,14 @@ namespace SerenaysGambit
 
         private void ClearGrid()
         {
+            for (var column = 0; column < GameBalance.GridColumns; column++)
+            {
+                if (_reelScrollers[column] != null)
+                {
+                    _reelScrollers[column].Clear();
+                }
+            }
+
             for (var row = 0; row < GameBalance.GridRows; row++)
             {
                 for (var column = 0; column < GameBalance.GridColumns; column++)
@@ -289,6 +411,20 @@ namespace SerenaysGambit
 
         private void UpdateGrid(SymbolKind[,] grid)
         {
+            for (var column = 0; column < GameBalance.GridColumns; column++)
+            {
+                var strip = _rulesConfig.ReelStripAt(column);
+                var g0 = grid[0, column];
+                var g1 = grid[1, column];
+                var g2 = grid[2, column];
+                var stopIndex = FindStopIndex(strip, g0, g1, g2);
+
+                if (_reelScrollers[column] != null)
+                {
+                    _reelScrollers[column].StopSpin(stopIndex, 0f, null);
+                }
+            }
+
             for (var row = 0; row < GameBalance.GridRows; row++)
             {
                 for (var column = 0; column < GameBalance.GridColumns; column++)
@@ -298,6 +434,183 @@ namespace SerenaysGambit
                     _cellImages[row, column].color = SymbolColor(symbol);
                 }
             }
+        }
+
+        private int FindStopIndex(SymbolKind[] strip, SymbolKind g0, SymbolKind g1, SymbolKind g2)
+        {
+            for (int i = 0; i < strip.Length; i++)
+            {
+                if (strip[i] == g0 && strip[(i + 1) % strip.Length] == g1 && strip[(i + 2) % strip.Length] == g2)
+                {
+                    return i;
+                }
+            }
+            return 0;
+        }
+
+        private struct CellRef
+        {
+            public Image Image;
+            public TextMeshProUGUI Text;
+            public Vector3 OriginalScale;
+            public Color OriginalColor;
+        }
+
+        private Image GetGridCellImage(int row, int column)
+        {
+            if (_reelScrollers[column] != null)
+            {
+                return _reelScrollers[column].GetCellImage(row);
+            }
+            return _cellImages[row, column];
+        }
+
+        private TextMeshProUGUI GetGridCellText(int row, int column)
+        {
+            if (_reelScrollers[column] != null)
+            {
+                return _reelScrollers[column].GetCellText(row);
+            }
+            return _cellTexts[row, column];
+        }
+
+        private IEnumerator AnimateWinHighlighting(SpinResult result)
+        {
+            var wins = result.Score.Wins;
+            BigInteger accumulatedPayout = BigInteger.Zero;
+            var canvas = GameObject.Find("GameCanvas");
+            Transform spawnParent = canvas != null ? canvas.transform : transform;
+
+            for (int i = 0; i < wins.Count; i++)
+            {
+                var win = wins[i];
+                float duration = Mathf.Max(0.12f, 0.6f / (1f + i * 0.4f));
+
+                // 1. Gather all cells involved in this payline
+                var positions = win.Payline.Positions;
+                var cells = new List<CellRef>();
+                for (int j = 0; j < positions.Length; j++)
+                {
+                    var pos = positions[j];
+                    var img = GetGridCellImage(pos.Row, pos.Column);
+                    var txt = GetGridCellText(pos.Row, pos.Column);
+                    if (img != null)
+                    {
+                        cells.Add(new CellRef
+                        {
+                            Image = img,
+                            Text = txt,
+                            OriginalScale = img.rectTransform.localScale,
+                            OriginalColor = img.color
+                        });
+                    }
+                }
+
+                // 2. Set result text for current win
+                _resultText.text = "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + (win.IsMagnetCompletion ? " + Magnet" : string.Empty) + ")";
+
+                // 3. Spawn coins for DOTween suck animation
+                var coins = new List<GameObject>();
+                for (int j = 0; j < cells.Count; j++)
+                {
+                    var cell = cells[j];
+                    var coin = SpawnCoin(cell.Image.transform.position, spawnParent);
+                    if (coin != null)
+                    {
+                        coins.Add(coin);
+                        // Animate coin using DOTween
+                        Vector3 startPos = cell.Image.transform.position;
+                        // Random offset in screen coordinates for burst
+                        Vector3 burstOffset = new Vector3(UnityEngine.Random.Range(-40f, 40f), UnityEngine.Random.Range(-40f, 40f), 0f);
+                        Vector3 midPos = startPos + burstOffset;
+
+                        Sequence seq = DOTween.Sequence();
+                        seq.Append(coin.transform.DOMove(midPos, duration * 0.3f).SetEase(Ease.OutQuad));
+                        seq.Join(coin.transform.DOPunchScale(Vector3.one * 0.2f, duration * 0.3f));
+                        seq.Append(coin.transform.DOMove(_payoutText.transform.position, duration * 0.7f).SetEase(Ease.InQuad));
+                        seq.Join(coin.transform.DOScale(Vector3.zero, duration * 0.7f).SetEase(Ease.InQuad));
+                        seq.OnComplete(() => Destroy(coin));
+                    }
+                }
+
+                // 4. Run cell scale punch and text lerp over duration
+                BigInteger winPayout = win.LinePayoutKurus * result.Score.ComboMultiplier * _state.Modifiers.MoneyMultiplier * result.Score.BatchFactor;
+                BigInteger startPayout = accumulatedPayout;
+                accumulatedPayout += winPayout;
+
+                float elapsed = 0f;
+                Color highlightColor = new Color(1f, 0.9f, 0.2f, 1f); // Gold glow
+
+                while (elapsed < duration)
+                {
+                    elapsed += Time.deltaTime;
+                    float progress = Mathf.Clamp01(elapsed / duration);
+
+                    // Scale factor: sine wave peak at 1.18f
+                    float scaleFactor = 1f + 0.18f * Mathf.Sin(progress * Mathf.PI);
+                    float colorBlend = Mathf.Sin(progress * Mathf.PI);
+
+                    for (int c = 0; c < cells.Count; c++)
+                    {
+                        var cell = cells[c];
+                        cell.Image.rectTransform.localScale = cell.OriginalScale * scaleFactor;
+                        cell.Image.color = Color.Lerp(cell.OriginalColor, highlightColor, colorBlend);
+                    }
+
+                    // Lerp display payout
+                    double doubleProgress = (double)progress;
+                    BigInteger currentDisplay = startPayout + (BigInteger)((double)(accumulatedPayout - startPayout) * doubleProgress);
+                    _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+
+                    yield return null;
+                }
+
+                // 5. Restore original scale & color of cells
+                for (int c = 0; c < cells.Count; c++)
+                {
+                    var cell = cells[c];
+                    cell.Image.rectTransform.localScale = cell.OriginalScale;
+                    cell.Image.color = cell.OriginalColor;
+                }
+
+                // Ensure final coins are cleaned up if any sequence was interrupted
+                for (int c = 0; c < coins.Count; c++)
+                {
+                    if (coins[c] != null)
+                    {
+                        Destroy(coins[c]);
+                    }
+                }
+            }
+
+            // Finally, snap payout text and show final results summary
+            _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+            _resultText.text = BuildResultSummary(result);
+        }
+
+        private GameObject SpawnCoin(Vector3 spawnPosition, Transform parent)
+        {
+            GameObject coin;
+            if (_coinPrefab != null)
+            {
+                coin = Instantiate(_coinPrefab, parent);
+            }
+            else
+            {
+                // Dynamic fallback UI image
+                coin = new GameObject("Coin", typeof(RectTransform), typeof(Image));
+                coin.transform.SetParent(parent, false);
+                var rect = coin.GetComponent<RectTransform>();
+                rect.sizeDelta = new Vector2(30f, 30f);
+                var image = coin.GetComponent<Image>();
+                image.color = new Color(1f, 0.85f, 0.2f, 1f); // Gold
+                
+                var outline = coin.AddComponent<Outline>();
+                outline.effectColor = Color.black;
+                outline.effectDistance = new Vector2(1.5f, 1.5f);
+            }
+            coin.transform.position = spawnPosition;
+            return coin;
         }
 
         private string SymbolLabel(SymbolKind symbol)
@@ -317,6 +630,9 @@ namespace SerenaysGambit
             {
                 case SymbolKind.Strawberry: return "STRAWBERRY";
                 case SymbolKind.Cherry: return "CHERRY";
+                case SymbolKind.Banana: return "BANANA";
+                case SymbolKind.Orange: return "ORANGE";
+                case SymbolKind.Apple: return "APPLE";
                 default: return "JOKER";
             }
         }
@@ -327,6 +643,9 @@ namespace SerenaysGambit
             {
                 case SymbolKind.Strawberry: return new Color(0.95f, 0.84f, 0.84f, 1f);
                 case SymbolKind.Cherry: return new Color(0.88f, 0.88f, 0.88f, 1f);
+                case SymbolKind.Banana: return new Color(0.98f, 0.95f, 0.65f, 1f);
+                case SymbolKind.Orange: return new Color(0.98f, 0.80f, 0.60f, 1f);
+                case SymbolKind.Apple: return new Color(0.98f, 0.72f, 0.72f, 1f);
                 default: return new Color(0.96f, 0.92f, 0.72f, 1f);
             }
         }
