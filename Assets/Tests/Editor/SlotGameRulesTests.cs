@@ -422,6 +422,192 @@ namespace SerenaysGambit.Tests
             Assert.That(state.RollsRemaining, Is.EqualTo(state.Modifiers.StartingRolls));
         }
 
+        [Test]
+        public void RunStatsResetForEachNewRun()
+        {
+            var engine = new SlotGameEngine(1, CreateThreeSymbolWinningGrid);
+            var state = engine.CreateNewRun();
+            state.RollsRemaining = 1;
+
+            Assert.That(engine.TrySpin(state, 1).Accepted, Is.True);
+            Assert.That(state.Stats.RollsUsed, Is.EqualTo(1));
+
+            var restarted = engine.CreateNewRun();
+            Assert.That(restarted.Stats.RollsUsed, Is.EqualTo(0));
+            Assert.That(restarted.Stats.HighestThresholdReached, Is.EqualTo(1));
+            Assert.That(restarted.Stats.TotalEarnedKurus, Is.EqualTo(BigInteger.Zero));
+            Assert.That(restarted.Stats.TotalSpentKurus, Is.EqualTo(BigInteger.Zero));
+            Assert.That(restarted.Stats.JackpotsScored, Is.EqualTo(0));
+            Assert.That(restarted.Stats.TotalItemsPurchased, Is.EqualTo(0));
+
+            foreach (SymbolKind symbol in System.Enum.GetValues(typeof(SymbolKind)))
+            {
+                var symbolStats = restarted.Stats.GetSymbolStats(symbol);
+                Assert.That(symbolStats.WinningPaylineCount, Is.EqualTo(0));
+                Assert.That(symbolStats.GeneratedKurus, Is.EqualTo(BigInteger.Zero));
+            }
+        }
+
+        [Test]
+        public void AcceptedSpinRecordsCappedRollsAndFinalSymbolEarnings()
+        {
+            var engine = new SlotGameEngine(1, CreateThreeSymbolWinningGrid);
+            var state = engine.CreateNewRun();
+            state.Modifiers.DoubleMoneyMultiplier();
+            state.Modifiers.IncreaseBaseOutputMultiplier();
+            state.RollsRemaining = 8;
+
+            var result = engine.TrySpin(state, 10);
+
+            Assert.That(result.Accepted, Is.True);
+            Assert.That(result.Score.BatchFactor, Is.EqualTo(8));
+            Assert.That(state.Stats.RollsUsed, Is.EqualTo(8));
+            Assert.That(state.Stats.TotalEarnedKurus, Is.EqualTo(result.Score.PayoutKurus));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Strawberry).WinningPaylineCount, Is.EqualTo(1));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Cherry).WinningPaylineCount, Is.EqualTo(1));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Banana).WinningPaylineCount, Is.EqualTo(1));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Joker).WinningPaylineCount, Is.EqualTo(0));
+
+            var attributedPayout = BigInteger.Zero;
+            foreach (SymbolKind symbol in System.Enum.GetValues(typeof(SymbolKind)))
+            {
+                attributedPayout += state.Stats.GetSymbolStats(symbol).GeneratedKurus;
+            }
+
+            Assert.That(attributedPayout, Is.EqualTo(result.Score.PayoutKurus));
+            Assert.That(
+                state.Stats.GetSymbolStats(SymbolKind.Strawberry).GeneratedKurus,
+                Is.EqualTo(result.Score.Wins[0].FinalPayoutKurus));
+        }
+
+        [Test]
+        public void RejectedSpinDoesNotChangeRunStats()
+        {
+            var engine = new SlotGameEngine(1, CreateNoWinGrid);
+            var state = engine.CreateNewRun();
+            state.RollsRemaining = 0;
+
+            var result = engine.TrySpin(state, 1);
+
+            Assert.That(result.Accepted, Is.False);
+            Assert.That(state.Stats.RollsUsed, Is.EqualTo(0));
+            Assert.That(state.Stats.TotalEarnedKurus, Is.EqualTo(BigInteger.Zero));
+            Assert.That(state.Stats.JackpotsScored, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SuccessfulPurchaseRecordsSpendAndItemCountOnlyOnce()
+        {
+            var engine = new SlotGameEngine(1);
+            var state = engine.CreateNewRun();
+            var cost = new BigInteger(12345);
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.FreeSpins, cost, "Free Spins", "Test offer"));
+            string message;
+
+            state.CashKurus = cost - 1;
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.False);
+            Assert.That(state.Stats.TotalSpentKurus, Is.EqualTo(BigInteger.Zero));
+            Assert.That(state.Stats.TotalItemsPurchased, Is.EqualTo(0));
+
+            state.CashKurus = cost;
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
+            Assert.That(state.Stats.TotalSpentKurus, Is.EqualTo(cost));
+            Assert.That(state.Stats.TotalItemsPurchased, Is.EqualTo(1));
+
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.False);
+            Assert.That(state.Stats.TotalSpentKurus, Is.EqualTo(cost));
+            Assert.That(state.Stats.TotalItemsPurchased, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SuccessfulPurchasesTrackOwnedUpgradeCounts()
+        {
+            var engine = new SlotGameEngine(1);
+            var state = engine.CreateNewRun();
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, BigInteger.Zero, "Strawberry", "Test offer"));
+            string message;
+
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.StrawberryValue), Is.EqualTo(1));
+
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, BigInteger.Zero, "Strawberry", "Test offer"));
+            Assert.That(engine.TryPurchase(state, 1, out message), Is.True);
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.StrawberryValue), Is.EqualTo(2));
+
+            var restarted = engine.CreateNewRun();
+            Assert.That(restarted.OwnedUpgradeCount(ShopOfferKind.StrawberryValue), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void FailedPurchaseDoesNotTrackAnOwnedUpgrade()
+        {
+            var engine = new SlotGameEngine(1);
+            var state = engine.CreateNewRun();
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.CherryValue, new BigInteger(100), "Cherry", "Test offer"));
+            state.CashKurus = BigInteger.Zero;
+            string message;
+
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.False);
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.CherryValue), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ClearingAThresholdRemovesTemporaryFreeSpinsFromOwnedUpgrades()
+        {
+            var engine = new SlotGameEngine(1);
+            var state = engine.CreateNewRun();
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.FreeSpins, BigInteger.Zero, "Free Spins", "Test offer"));
+            string message;
+
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.FreeSpins), Is.EqualTo(1));
+            Assert.That(state.Modifiers.TemporaryFreeSpins, Is.EqualTo(state.Config.FreeSpinBundle));
+
+            state.CashKurus = state.CurrentTargetKurus;
+            state.RollsRemaining = 0;
+            Assert.That(engine.TrySettleThreshold(state), Is.True);
+
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.FreeSpins), Is.EqualTo(0));
+            Assert.That(state.Modifiers.TemporaryFreeSpins, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void TripleJokerSpinCountsOneJackpotAndEveryWinningPayline()
+        {
+            var engine = new SlotGameEngine(1, CreateTripleJokerGrid);
+            var state = engine.CreateNewRun();
+            state.RollsRemaining = 1;
+
+            var result = engine.TrySpin(state, 1);
+            var tripleJokerStats = state.Stats.GetSymbolStats(SymbolKind.Joker);
+
+            Assert.That(result.Accepted, Is.True);
+            Assert.That(state.Stats.JackpotsScored, Is.EqualTo(1));
+            Assert.That(tripleJokerStats.WinningPaylineCount, Is.EqualTo(result.Score.Wins.Count));
+            Assert.That(tripleJokerStats.GeneratedKurus, Is.EqualTo(result.Score.PayoutKurus));
+        }
+
+        [Test]
+        public void HighestThresholdReachedTracksSuccessfulSettlementsThroughVictory()
+        {
+            var engine = new SlotGameEngine(7);
+            var state = engine.CreateNewRun();
+
+            while (state.Phase == RunPhase.Playing)
+            {
+                state.CashKurus = state.CurrentTargetKurus;
+                state.RollsRemaining = 0;
+                Assert.That(engine.TrySettleThreshold(state), Is.True);
+            }
+
+            Assert.That(state.Phase, Is.EqualTo(RunPhase.Victory));
+            Assert.That(state.Stats.HighestThresholdReached, Is.EqualTo(state.Config.ThresholdCount));
+        }
+
         private static SymbolKind[,] CreateNoWinGrid()
         {
             return new[,]
@@ -429,6 +615,26 @@ namespace SerenaysGambit.Tests
                 { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Strawberry },
                 { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry },
                 { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry }
+            };
+        }
+
+        private static SymbolKind[,] CreateThreeSymbolWinningGrid()
+        {
+            return new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
+            };
+        }
+
+        private static SymbolKind[,] CreateTripleJokerGrid()
+        {
+            return new[,]
+            {
+                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
+                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
+                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker }
             };
         }
     }

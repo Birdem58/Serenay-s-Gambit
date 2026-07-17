@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,6 +22,8 @@ namespace SerenaysGambit
         private ShopItemDefinition[] _shopItemDefinitions;
         private BalanceDefinition _balanceDefinition;
         private GameRulesConfig _rulesConfig;
+        private readonly Dictionary<ShopOfferKind, ShopItemDefinition> _shopItemDefinitionsByKind = new Dictionary<ShopOfferKind, ShopItemDefinition>();
+        private readonly Dictionary<ShopOfferKind, OwnedUpgradeView> _ownedUpgradeViews = new Dictionary<ShopOfferKind, OwnedUpgradeView>();
 
         private readonly ReelScroller[] _reelScrollers = new ReelScroller[GameBalance.GridColumns];
         private bool _isSpinAnimating;
@@ -33,7 +36,8 @@ namespace SerenaysGambit
         private TextMeshProUGUI _payoutText;
         private TextMeshProUGUI _resultText;
         private TextMeshProUGUI _shopWalletText;
-        private TextMeshProUGUI _ownedUpgradesText;
+        private RectTransform _ownedUpgradesLayout;
+        private UpgradeTooltip _upgradeTooltip;
         private TextMeshProUGUI _refreshLabel;
         private readonly TextMeshProUGUI[] _offerLabels = new TextMeshProUGUI[3];
         private readonly Button[] _offerButtons = new Button[3];
@@ -53,9 +57,12 @@ namespace SerenaysGambit
         private Button _victoryRestartButton;
         private GameObject _gameOverOverlay;
         private GameObject _victoryOverlay;
+        private TextMeshProUGUI _gameOverRunStatsText;
+        private TextMeshProUGUI _victoryRunStatsText;
 
         private SlotLever _lever;
         [SerializeField] private GameObject _coinPrefab;
+        [SerializeField] private OwnedUpgradeView _ownedUpgradePrefab;
         private int _currentBatchFactor = 1;
         private readonly Color _buttonSelectedColor = new Color(0.2f, 0.62f, 0.3f, 1f); // Green
         private readonly Color _buttonNormalColor = new Color(0.2f, 0.38f, 0.62f, 1f); // Blue
@@ -66,6 +73,7 @@ namespace SerenaysGambit
             _reelDefinitions = Resources.LoadAll<ReelDefinition>("SerenaysGambit/Data/Reels");
             _shopItemDefinitions = Resources.LoadAll<ShopItemDefinition>("SerenaysGambit/Data/ShopItems");
             _balanceDefinition = Resources.Load<BalanceDefinition>("SerenaysGambit/Data/Balance/DefaultBalance");
+            IndexShopItemDefinitions();
             _rulesConfig = RuntimeGameConfigFactory.Create(_symbolDefinitions, _reelDefinitions, _shopItemDefinitions, _balanceDefinition);
             PrepareDefaultFonts();
             if (!BindView())
@@ -120,6 +128,7 @@ namespace SerenaysGambit
 
         private void StartNewRun()
         {
+            ClearOwnedUpgradeViews();
             _runService = new RunService(Environment.TickCount, _rulesConfig);
             _shopService = _runService.Shop;
             _state = _runService.CreateNewRun();
@@ -128,6 +137,7 @@ namespace SerenaysGambit
             _payoutText.text = "Last payout: TL 0.00";
             _gameOverOverlay.SetActive(false);
             _victoryOverlay.SetActive(false);
+            RefreshEndScreenStats();
             RefreshView();
         }
 
@@ -221,10 +231,12 @@ namespace SerenaysGambit
 
             if (_state.Phase == RunPhase.GameOver)
             {
+                RefreshEndScreenStats();
                 _gameOverOverlay.SetActive(true);
             }
             else if (_state.Phase == RunPhase.Victory)
             {
+                RefreshEndScreenStats();
                 _victoryOverlay.SetActive(true);
             }
 
@@ -267,7 +279,12 @@ namespace SerenaysGambit
                 _payoutText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/PayoutText");
                 _resultText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ResultText");
                 _shopWalletText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/ShopWalletText");
-                _ownedUpgradesText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/OwnedUpgradesText");
+                _ownedUpgradesLayout = Require<RectTransform>(root, "MainContent/SerenayShopPanel/OwnedUpgradesLayout");
+                _upgradeTooltip = Require<UpgradeTooltip>(root, "UpgradeTooltip");
+                if (_ownedUpgradePrefab == null)
+                {
+                    throw new InvalidOperationException("SlotGameController requires an owned-upgrade prefab reference.");
+                }
 
                 _thresholdBarRect = Require<RectTransform>(root, "MainContent/SlotMachinePanel/ThresholdBar");
                 _thresholdBarBackground = Require<Image>(root, "MainContent/SlotMachinePanel/ThresholdBar");
@@ -300,6 +317,8 @@ namespace SerenaysGambit
 
                 _gameOverOverlay = RequireTransform(root, "GameOverOverlay").gameObject;
                 _victoryOverlay = RequireTransform(root, "VictoryOverlay").gameObject;
+                _gameOverRunStatsText = Require<TextMeshProUGUI>(root, "GameOverOverlay/RunStatsText");
+                _victoryRunStatsText = Require<TextMeshProUGUI>(root, "VictoryOverlay/RunStatsText");
                 _gameOverRestartButton = Require<Button>(root, "GameOverOverlay/RestartButton");
                 _victoryRestartButton = Require<Button>(root, "VictoryOverlay/RestartButton");
             }
@@ -334,7 +353,7 @@ namespace SerenaysGambit
             _organsText.text = "Organs: " + _state.RemainingOrgans + "/" + _state.Config.OrganCount + " (" + OrganStatusText() + ")";
             _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
-            _ownedUpgradesText.text = "Owned\nStrawberry: x" + _state.Modifiers.StrawberryValue + "\nCherry: x" + _state.Modifiers.CherryValue + "\nBanana: x" + _state.Modifiers.BananaValue + "\nOrange: x" + _state.Modifiers.OrangeValue + "\nApple: x" + _state.Modifiers.AppleValue + "\nMoney: x" + _state.Modifiers.MoneyMultiplier + "\nBase rolls: x" + _state.Modifiers.BaseRollMultiplier + "\nFree spins: +" + _state.Modifiers.TemporaryFreeSpins + "\nOutput mult: x" + _state.Modifiers.BaseOutputMultiplier;
+            RefreshOwnedUpgradeViews();
 
             _spin1xButton.image.color = _currentBatchFactor == 1 ? _buttonSelectedColor : _buttonNormalColor;
             _spin5xButton.image.color = _currentBatchFactor == 5 ? _buttonSelectedColor : _buttonNormalColor;
@@ -358,6 +377,161 @@ namespace SerenaysGambit
                     ? offer.Title + "\nSOLD"
                     : offer.Title + "\n" + offer.Description + "\n" + MoneyFormatter.FormatTL(offer.CostKurus);
                 _offerButtons[index].interactable = _state.Phase == RunPhase.Playing && !offer.Purchased && _state.CashKurus >= offer.CostKurus;
+            }
+        }
+
+        private void IndexShopItemDefinitions()
+        {
+            _shopItemDefinitionsByKind.Clear();
+            if (_shopItemDefinitions == null)
+            {
+                return;
+            }
+
+            foreach (var definition in _shopItemDefinitions)
+            {
+                if (definition != null)
+                {
+                    _shopItemDefinitionsByKind[definition.Kind] = definition;
+                }
+            }
+        }
+
+        private void RefreshOwnedUpgradeViews()
+        {
+            var activeKinds = new HashSet<ShopOfferKind>();
+            foreach (ShopOfferKind kind in Enum.GetValues(typeof(ShopOfferKind)))
+            {
+                var ownedCount = _state.OwnedUpgradeCount(kind);
+                if (ownedCount <= 0)
+                {
+                    continue;
+                }
+
+                activeKinds.Add(kind);
+                OwnedUpgradeView view;
+                if (!_ownedUpgradeViews.TryGetValue(kind, out view) || view == null)
+                {
+                    view = Instantiate(_ownedUpgradePrefab, _ownedUpgradesLayout);
+                    _ownedUpgradeViews[kind] = view;
+                }
+
+                ShopItemDefinition definition;
+                _shopItemDefinitionsByKind.TryGetValue(kind, out definition);
+                var title = definition != null && !string.IsNullOrEmpty(definition.DisplayName) ? definition.DisplayName : kind.ToString();
+                var description = definition != null && !string.IsNullOrEmpty(definition.Description)
+                    ? definition.Description
+                    : "Upgrade details are unavailable.";
+                view.Bind(
+                    definition == null ? null : definition.Icon,
+                    UpgradeFallbackLabel(kind),
+                    UpgradeFallbackColor(kind),
+                    ownedCount,
+                    title,
+                    description,
+                    CurrentUpgradeEffect(kind),
+                    _upgradeTooltip);
+            }
+
+            var staleKinds = new List<ShopOfferKind>();
+            foreach (var pair in _ownedUpgradeViews)
+            {
+                if (!activeKinds.Contains(pair.Key))
+                {
+                    staleKinds.Add(pair.Key);
+                }
+            }
+
+            foreach (var kind in staleKinds)
+            {
+                var view = _ownedUpgradeViews[kind];
+                _ownedUpgradeViews.Remove(kind);
+                if (view == null)
+                {
+                    continue;
+                }
+
+                if (kind == ShopOfferKind.FreeSpins)
+                {
+                    view.FadeOutAndDestroy(0.2f);
+                }
+                else
+                {
+                    Destroy(view.gameObject);
+                }
+            }
+        }
+
+        private void ClearOwnedUpgradeViews()
+        {
+            if (_upgradeTooltip != null)
+            {
+                _upgradeTooltip.Hide();
+            }
+
+            foreach (var pair in _ownedUpgradeViews)
+            {
+                if (pair.Value != null)
+                {
+                    pair.Value.gameObject.SetActive(false);
+                    Destroy(pair.Value.gameObject);
+                }
+            }
+
+            _ownedUpgradeViews.Clear();
+        }
+
+        private string CurrentUpgradeEffect(ShopOfferKind kind)
+        {
+            switch (kind)
+            {
+                case ShopOfferKind.StrawberryValue: return "Current Strawberry value: x" + _state.Modifiers.StrawberryValue;
+                case ShopOfferKind.CherryValue: return "Current Cherry value: x" + _state.Modifiers.CherryValue;
+                case ShopOfferKind.BananaValue: return "Current Banana value: x" + _state.Modifiers.BananaValue;
+                case ShopOfferKind.OrangeValue: return "Current Orange value: x" + _state.Modifiers.OrangeValue;
+                case ShopOfferKind.AppleValue: return "Current Apple value: x" + _state.Modifiers.AppleValue;
+                case ShopOfferKind.MoneyMultiplier: return "Current money multiplier: x" + _state.Modifiers.MoneyMultiplier;
+                case ShopOfferKind.FreeSpins: return "Active free spins: +" + _state.Modifiers.TemporaryFreeSpins;
+                case ShopOfferKind.BaseRollMultiplierX2:
+                case ShopOfferKind.BaseRollMultiplierX10: return "Current base rolls: x" + _state.Modifiers.BaseRollMultiplier;
+                case ShopOfferKind.BaseOutputMultiplier: return "Current output multiplier: x" + _state.Modifiers.BaseOutputMultiplier;
+                default: return string.Empty;
+            }
+        }
+
+        private static string UpgradeFallbackLabel(ShopOfferKind kind)
+        {
+            switch (kind)
+            {
+                case ShopOfferKind.StrawberryValue: return "S";
+                case ShopOfferKind.CherryValue: return "C";
+                case ShopOfferKind.BananaValue: return "B";
+                case ShopOfferKind.OrangeValue: return "O";
+                case ShopOfferKind.AppleValue: return "A";
+                case ShopOfferKind.MoneyMultiplier: return "TL";
+                case ShopOfferKind.FreeSpins: return "+";
+                case ShopOfferKind.BaseRollMultiplierX2: return "R2";
+                case ShopOfferKind.BaseRollMultiplierX10: return "R10";
+                case ShopOfferKind.BaseOutputMultiplier: return "OUT";
+                default: return "?";
+            }
+        }
+
+        private static Color UpgradeFallbackColor(ShopOfferKind kind)
+        {
+            switch (kind)
+            {
+                case ShopOfferKind.StrawberryValue: return new Color(0.85f, 0.36f, 0.42f, 1f);
+                case ShopOfferKind.CherryValue: return new Color(0.72f, 0.25f, 0.32f, 1f);
+                case ShopOfferKind.BananaValue: return new Color(0.95f, 0.78f, 0.26f, 1f);
+                case ShopOfferKind.OrangeValue: return new Color(0.94f, 0.49f, 0.18f, 1f);
+                case ShopOfferKind.AppleValue: return new Color(0.53f, 0.72f, 0.33f, 1f);
+                case ShopOfferKind.MoneyMultiplier: return new Color(0.30f, 0.66f, 0.45f, 1f);
+                case ShopOfferKind.FreeSpins: return new Color(0.34f, 0.62f, 0.85f, 1f);
+                case ShopOfferKind.BaseRollMultiplierX2:
+                case ShopOfferKind.BaseRollMultiplierX10: return new Color(0.57f, 0.44f, 0.78f, 1f);
+                case ShopOfferKind.BaseOutputMultiplier: return new Color(0.78f, 0.49f, 0.76f, 1f);
+                default: return new Color(0.5f, 0.5f, 0.5f, 1f);
             }
         }
 
@@ -403,6 +577,51 @@ namespace SerenaysGambit
             }
 
             return summary;
+        }
+
+        private void RefreshEndScreenStats()
+        {
+            if (_state == null)
+            {
+                return;
+            }
+
+            var summary = BuildRunStatsSummary();
+            _gameOverRunStatsText.text = summary;
+            _victoryRunStatsText.text = summary;
+        }
+
+        private string BuildRunStatsSummary()
+        {
+            var stats = _state.Stats;
+            var summary = new StringBuilder();
+            summary.AppendLine("RUN STATS");
+            summary.AppendLine("Rolls used: " + stats.RollsUsed);
+            summary.AppendLine("Highest threshold: " + stats.HighestThresholdReached + "/" + _state.Config.ThresholdCount);
+            summary.AppendLine("Total earned: " + MoneyFormatter.FormatTL(stats.TotalEarnedKurus));
+            summary.AppendLine("Total spent: " + MoneyFormatter.FormatTL(stats.TotalSpentKurus));
+            summary.AppendLine("Jackpots: " + stats.JackpotsScored);
+            summary.AppendLine("Items purchased: " + stats.TotalItemsPurchased);
+            summary.AppendLine();
+            summary.AppendLine("SYMBOL EARNINGS");
+            AppendSymbolRunStats(summary, SymbolKind.Strawberry, "Strawberry");
+            AppendSymbolRunStats(summary, SymbolKind.Cherry, "Cherry");
+            AppendSymbolRunStats(summary, SymbolKind.Banana, "Banana");
+            AppendSymbolRunStats(summary, SymbolKind.Orange, "Orange");
+            AppendSymbolRunStats(summary, SymbolKind.Apple, "Apple");
+            AppendSymbolRunStats(summary, SymbolKind.Joker, "Triple Joker");
+            return summary.ToString().TrimEnd();
+        }
+
+        private void AppendSymbolRunStats(StringBuilder summary, SymbolKind symbol, string label)
+        {
+            var symbolStats = _state.Stats.GetSymbolStats(symbol);
+            summary.Append(label);
+            summary.Append(": ");
+            summary.Append(symbolStats.WinningPaylineCount);
+            summary.Append(symbolStats.WinningPaylineCount == 1 ? " payline — " : " paylines — ");
+            summary.Append(MoneyFormatter.FormatTL(symbolStats.GeneratedKurus));
+            summary.AppendLine();
         }
 
         private void ClearGrid()

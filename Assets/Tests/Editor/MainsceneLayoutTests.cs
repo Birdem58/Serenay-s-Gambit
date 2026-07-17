@@ -1,4 +1,6 @@
 using NUnit.Framework;
+using TMPro;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -46,6 +48,55 @@ namespace SerenaysGambit.Tests
             Assert.That(buttonsRow.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
             Assert.That(buttonsRow.childCount, Is.EqualTo(3));
             Assert.That(offerList.childCount, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void EndGameOverlaysIncludeRunStatsSummaryText()
+        {
+            var canvas = GameObject.Find("GameCanvas");
+            Assert.That(canvas, Is.Not.Null, "Mainscene must include the GameCanvas.");
+
+            var gameOverStats = canvas.transform.Find("GameOverOverlay/RunStatsText");
+            var victoryStats = canvas.transform.Find("VictoryOverlay/RunStatsText");
+
+            Assert.That(gameOverStats, Is.Not.Null);
+            Assert.That(victoryStats, Is.Not.Null);
+            Assert.That(gameOverStats.GetComponent<TextMeshProUGUI>(), Is.Not.Null);
+            Assert.That(victoryStats.GetComponent<TextMeshProUGUI>(), Is.Not.Null);
+        }
+
+        [Test]
+        public void OwnedUpgradesUseAnIconGridAndReusablePrefab()
+        {
+            var canvas = GameObject.Find("GameCanvas");
+            Assert.That(canvas, Is.Not.Null, "Mainscene must include the GameCanvas.");
+
+            var shop = canvas.transform.Find("MainContent/SerenayShopPanel");
+            Assert.That(shop, Is.Not.Null);
+            Assert.That(shop.Find("OwnedUpgradesText"), Is.Null);
+            Assert.That(shop.Find("OwnedUpgradesHeading").GetComponent<TextMeshProUGUI>(), Is.Not.Null);
+
+            var layout = shop.Find("OwnedUpgradesLayout");
+            Assert.That(layout, Is.Not.Null);
+            var grid = layout.GetComponent<GridLayoutGroup>();
+            Assert.That(grid, Is.Not.Null);
+            Assert.That(grid.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+            Assert.That(grid.constraintCount, Is.EqualTo(5));
+            Assert.That(grid.cellSize, Is.EqualTo(new Vector2(56f, 56f)));
+            Assert.That(grid.spacing, Is.EqualTo(new Vector2(8f, 8f)));
+
+            var tooltip = canvas.transform.Find("UpgradeTooltip");
+            Assert.That(tooltip, Is.Not.Null);
+            Assert.That(tooltip.GetComponent<UpgradeTooltip>(), Is.Not.Null);
+            Assert.That(tooltip.GetComponent<Image>().raycastTarget, Is.False);
+            Assert.That(tooltip.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/upgrades.prefab");
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.GetComponent<OwnedUpgradeView>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<UpgradeTooltipTrigger>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<CanvasGroup>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<Image>(), Is.Not.Null);
         }
     }
 }

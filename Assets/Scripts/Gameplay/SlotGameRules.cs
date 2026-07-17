@@ -414,8 +414,94 @@ namespace SerenaysGambit
         public List<ShopOffer> Offers { get; private set; }
     }
 
+    public sealed class SymbolRunStats
+    {
+        internal SymbolRunStats()
+        {
+        }
+
+        public int WinningPaylineCount { get; private set; }
+        public BigInteger GeneratedKurus { get; private set; }
+
+        internal void RecordWinningPayline(BigInteger payoutKurus)
+        {
+            WinningPaylineCount++;
+            GeneratedKurus += payoutKurus;
+        }
+    }
+
+    public sealed class RunStats
+    {
+        private readonly Dictionary<SymbolKind, SymbolRunStats> _symbolStats = new Dictionary<SymbolKind, SymbolRunStats>();
+
+        internal RunStats(int startingThresholdLevel)
+        {
+            HighestThresholdReached = Math.Max(1, startingThresholdLevel);
+            foreach (SymbolKind symbol in Enum.GetValues(typeof(SymbolKind)))
+            {
+                _symbolStats.Add(symbol, new SymbolRunStats());
+            }
+        }
+
+        public int RollsUsed { get; private set; }
+        public int HighestThresholdReached { get; private set; }
+        public BigInteger TotalEarnedKurus { get; private set; }
+        public BigInteger TotalSpentKurus { get; private set; }
+        public int JackpotsScored { get; private set; }
+        public int TotalItemsPurchased { get; private set; }
+        public IReadOnlyDictionary<SymbolKind, SymbolRunStats> SymbolStats { get { return _symbolStats; } }
+
+        public SymbolRunStats GetSymbolStats(SymbolKind symbol)
+        {
+            SymbolRunStats stats;
+            if (!_symbolStats.TryGetValue(symbol, out stats))
+            {
+                throw new ArgumentOutOfRangeException(nameof(symbol));
+            }
+
+            return stats;
+        }
+
+        internal void RecordSpin(ScoredSpin score)
+        {
+            if (score == null)
+            {
+                throw new ArgumentNullException(nameof(score));
+            }
+
+            RollsUsed += score.BatchFactor;
+            TotalEarnedKurus += score.PayoutKurus;
+
+            var scoredTripleJoker = false;
+            foreach (var win in score.Wins)
+            {
+                var symbol = win.IsTripleJoker ? SymbolKind.Joker : win.ResolvedSymbol;
+                GetSymbolStats(symbol).RecordWinningPayline(win.FinalPayoutKurus);
+                scoredTripleJoker |= win.IsTripleJoker;
+            }
+
+            if (scoredTripleJoker)
+            {
+                JackpotsScored++;
+            }
+        }
+
+        internal void RecordPurchase(BigInteger costKurus)
+        {
+            TotalSpentKurus += costKurus;
+            TotalItemsPurchased++;
+        }
+
+        internal void RecordThresholdReached(int thresholdLevel)
+        {
+            HighestThresholdReached = Math.Max(HighestThresholdReached, thresholdLevel);
+        }
+    }
+
     public sealed class RunState
     {
+        private readonly Dictionary<ShopOfferKind, int> _ownedUpgradeCounts = new Dictionary<ShopOfferKind, int>();
+
         internal RunState() : this(GameRulesConfig.CreateDefault())
         {
         }
@@ -431,6 +517,7 @@ namespace SerenaysGambit
             Phase = RunPhase.Playing;
             Modifiers = new RunModifiers(Config);
             Shop = new ShopState();
+            Stats = new RunStats(ThresholdLevel);
         }
 
         public int ThresholdLevel { get; internal set; }
@@ -442,7 +529,24 @@ namespace SerenaysGambit
         public RunModifiers Modifiers { get; private set; }
         public GameRulesConfig Config { get; private set; }
         public ShopState Shop { get; private set; }
+        public RunStats Stats { get; private set; }
         public List<ShopOffer> ShopOffers { get { return Shop.Offers; } }
+
+        public int OwnedUpgradeCount(ShopOfferKind kind)
+        {
+            int count;
+            return _ownedUpgradeCounts.TryGetValue(kind, out count) ? count : 0;
+        }
+
+        internal void RecordOwnedUpgrade(ShopOfferKind kind)
+        {
+            _ownedUpgradeCounts[kind] = OwnedUpgradeCount(kind) + 1;
+        }
+
+        internal void ClearOwnedUpgrade(ShopOfferKind kind)
+        {
+            _ownedUpgradeCounts.Remove(kind);
+        }
 
         public BigInteger CurrentTargetKurus
         {
@@ -701,6 +805,7 @@ namespace SerenaysGambit
             state.RollsRemaining -= batchFactor;
             var grid = CreateGrid();
             var score = SlotScoring.Evaluate(grid, state.Modifiers, batchFactor);
+            state.Stats.RecordSpin(score);
             state.CashKurus += score.PayoutKurus;
 
             var result = new SpinResult
@@ -737,14 +842,17 @@ namespace SerenaysGambit
             }
 
             state.CashKurus -= state.CurrentTargetKurus;
+            state.Modifiers.ClearThresholdFreeSpins();
+            state.ClearOwnedUpgrade(ShopOfferKind.FreeSpins);
             if (state.ThresholdLevel >= state.Config.ThresholdCount)
             {
+                state.Stats.RecordThresholdReached(state.ThresholdLevel);
                 state.Phase = RunPhase.Victory;
                 return true;
             }
 
             state.ThresholdLevel++;
-            state.Modifiers.ClearThresholdFreeSpins();
+            state.Stats.RecordThresholdReached(state.ThresholdLevel);
             RefillRolls(state);
             GenerateShop(state);
             return true;
@@ -839,7 +947,9 @@ namespace SerenaysGambit
                     break;
             }
 
+            state.Stats.RecordPurchase(offer.CostKurus);
             offer.Purchased = true;
+            state.RecordOwnedUpgrade(offer.Kind);
             message = offer.Title + " purchased.";
             return true;
         }
