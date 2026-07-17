@@ -454,6 +454,7 @@ namespace SerenaysGambit
             public TextMeshProUGUI Text;
             public Vector3 OriginalScale;
             public Color OriginalColor;
+            public Color OriginalTextColor;
         }
 
         private Image GetGridCellImage(int row, int column)
@@ -501,7 +502,8 @@ namespace SerenaysGambit
                             Image = img,
                             Text = txt,
                             OriginalScale = img.rectTransform.localScale,
-                            OriginalColor = img.color
+                            OriginalColor = img.color,
+                            OriginalTextColor = txt != null ? txt.color : Color.white
                         });
 
                         // Add a thick gold outline to show slot highlight
@@ -579,7 +581,7 @@ namespace SerenaysGambit
                             if (cell.Text != null)
                             {
                                 cell.Text.transform.localScale = Vector3.one * scaleFactor;
-                                cell.Text.color = Color.Lerp(Color.white, new Color(1f, 0.3f, 0.1f, 1f), colorBlend);
+                                cell.Text.color = Color.Lerp(cell.OriginalTextColor, new Color(1f, 0.3f, 0.1f, 1f), colorBlend);
                             }
                         }
 
@@ -603,7 +605,7 @@ namespace SerenaysGambit
                     if (cell.Text != null)
                     {
                         cell.Text.transform.localScale = Vector3.one;
-                        cell.Text.color = Color.white;
+                        cell.Text.color = cell.OriginalTextColor;
                     }
 
                     var outline = cell.Image.GetComponent<Outline>();
