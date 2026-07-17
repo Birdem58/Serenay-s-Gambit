@@ -169,6 +169,7 @@ namespace SerenaysGambit.Tests
             var state = engine.CreateNewRun();
             state.Modifiers.AddFreeSpins(GameBalance.FreeSpinBundle);
             state.CashKurus = state.CurrentTargetKurus + 12345;
+            state.RollsRemaining = 0;
 
             var settled = engine.TrySettleThreshold(state);
 
@@ -252,6 +253,7 @@ namespace SerenaysGambit.Tests
             string lostOrgan;
             engine.ResolveFailureIfOutOfRolls(state, out lostOrgan);
             state.CashKurus = state.CurrentTargetKurus;
+            state.RollsRemaining = 0;
 
             Assert.That(engine.TrySettleThreshold(state), Is.True);
             Assert.That(state.Modifiers.MoneyMultiplier, Is.EqualTo(new BigInteger(2)));
@@ -332,6 +334,36 @@ namespace SerenaysGambit.Tests
             Assert.That(authoredOffer, Is.Not.Null);
             Assert.That(authoredOffer.Title, Is.EqualTo("Authored " + authoredOffer.Kind));
             Assert.That(authoredOffer.Description, Is.EqualTo("Description " + authoredOffer.Kind));
+        }
+
+        [Test]
+        public void CannotSettleThresholdUnlessRollsAreDepleted()
+        {
+            var engine = new SlotGameEngine(42);
+            var state = engine.CreateNewRun();
+            state.CashKurus = state.CurrentTargetKurus;
+            state.RollsRemaining = 1;
+
+            Assert.That(engine.TrySettleThreshold(state), Is.False);
+
+            state.RollsRemaining = 0;
+            Assert.That(engine.TrySettleThreshold(state), Is.True);
+        }
+
+        [Test]
+        public void CappingBatchFactorToRemainingRollsWhenFewerRollsLeft()
+        {
+            var engine = new SlotGameEngine(1, CreateNoWinGrid);
+            var state = engine.CreateNewRun();
+            state.RollsRemaining = 8;
+
+            var result = engine.TrySpin(state, 10);
+
+            Assert.That(result.Accepted, Is.True);
+            Assert.That(result.Score.BatchFactor, Is.EqualTo(8));
+            Assert.That(result.OrganLost, Is.True);
+            Assert.That(state.OrganLosses, Is.EqualTo(1));
+            Assert.That(state.RollsRemaining, Is.EqualTo(state.Modifiers.StartingRolls));
         }
 
         private static SymbolKind[,] CreateNoWinGrid()

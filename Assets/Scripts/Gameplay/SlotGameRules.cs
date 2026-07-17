@@ -603,7 +603,7 @@ namespace SerenaysGambit
                 throw new ArgumentException("The slot grid must be 3 by 3.", nameof(grid));
             }
 
-            if (batchFactor != 1 && batchFactor != 5 && batchFactor != 10)
+            if (batchFactor < 1 || batchFactor > 10)
             {
                 throw new ArgumentOutOfRangeException(nameof(batchFactor));
             }
@@ -724,6 +724,11 @@ namespace SerenaysGambit
 
             if (state.RollsRemaining < batchFactor)
             {
+                batchFactor = state.RollsRemaining;
+            }
+
+            if (batchFactor <= 0)
+            {
                 return RejectedResult("Not enough rolls for that batch.");
             }
 
@@ -757,7 +762,7 @@ namespace SerenaysGambit
 
         public bool TrySettleThreshold(RunState state)
         {
-            if (state == null || state.Phase != RunPhase.Playing || state.CashKurus < state.CurrentTargetKurus)
+            if (state == null || state.Phase != RunPhase.Playing || state.RollsRemaining > 0 || state.CashKurus < state.CurrentTargetKurus)
             {
                 return false;
             }

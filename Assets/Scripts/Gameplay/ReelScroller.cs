@@ -58,25 +58,7 @@ namespace SerenaysGambit
             _labelFunc = labelFunc;
             _colorFunc = colorFunc;
 
-            // 1. Add RectMask2D to this Reel GameObject to clip overflow
-            if (gameObject.GetComponent<RectMask2D>() == null)
-            {
-                gameObject.AddComponent<RectMask2D>();
-            }
-
-            // 2. Create the scrolling container
-            var containerObj = new GameObject("ReelStripContent", typeof(RectTransform));
-            containerObj.transform.SetParent(transform, false);
-            _container = containerObj.GetComponent<RectTransform>();
-
-            // Setup container anchors to stretch horizontally, anchor to top vertically
-            _container.anchorMin = new Vector2(0f, 1f);
-            _container.anchorMax = new Vector2(1f, 1f);
-            _container.pivot = new Vector2(0.5f, 1f);
-            _container.anchoredPosition = Vector2.zero;
-            _container.sizeDelta = new Vector2(0f, 1000f); // Arbitrary height, will position children manually
-
-            // 3. Find existing 3 cells
+            // 1. Find existing 3 cells first
             var originalCells = new List<RectTransform>();
             for (int r = 1; r <= 3; r++)
             {
@@ -98,7 +80,39 @@ namespace SerenaysGambit
             float pos2 = originalCells[1].localPosition.y;
             _offset = pos1 - pos2;
 
-            // Move existing cells to the container and duplicate to get continuous strip cells
+            // Remove RectMask2D from main Reel GameObject to avoid nested masking issues
+            var mainMask = gameObject.GetComponent<RectMask2D>();
+            if (mainMask != null)
+            {
+                Destroy(mainMask);
+            }
+
+            // 2. Create Viewport child GameObject to constrain visible area to exactly 3 cells
+            var viewportObj = new GameObject("Viewport", typeof(RectTransform));
+            viewportObj.transform.SetParent(transform, false);
+            var viewportRect = viewportObj.GetComponent<RectTransform>();
+            viewportRect.anchorMin = new Vector2(0f, 0.5f);
+            viewportRect.anchorMax = new Vector2(1f, 0.5f);
+            viewportRect.pivot = new Vector2(0.5f, 0.5f);
+            viewportRect.sizeDelta = new Vector2(0f, 3f * _offset);
+            viewportRect.anchoredPosition = new Vector2(0f, pos1 - _offset);
+
+            // Add RectMask2D to viewport so only these 3 cells are shown
+            viewportObj.AddComponent<RectMask2D>();
+
+            // 3. Create the scrolling container under viewport
+            var containerObj = new GameObject("ReelStripContent", typeof(RectTransform));
+            containerObj.transform.SetParent(viewportObj.transform, false);
+            _container = containerObj.GetComponent<RectTransform>();
+
+            // Setup container anchors to stretch horizontally, anchor to top vertically relative to Viewport
+            _container.anchorMin = new Vector2(0f, 1f);
+            _container.anchorMax = new Vector2(1f, 1f);
+            _container.pivot = new Vector2(0.5f, 1f);
+            _container.anchoredPosition = Vector2.zero;
+            _container.sizeDelta = new Vector2(0f, 1000f);
+
+            // 4. Move existing cells to the container and duplicate to get continuous strip cells
             int numCells = _strip.Length * 2;
             for (int i = 0; i < numCells; i++)
             {
@@ -119,8 +133,8 @@ namespace SerenaysGambit
                 cell.anchorMax = new Vector2(0.94f, 1f);
                 cell.pivot = new Vector2(0.5f, 0.5f);
 
-                // Position cell at pos1 - i * _offset
-                cell.anchoredPosition = new Vector2(0f, pos1 - i * _offset);
+                // Position cell at (-0.5f - i) * _offset so it aligns with rows 0, 1, 2
+                cell.anchoredPosition = new Vector2(0f, (-0.5f - i) * _offset);
 
                 // Cache image and text components
                 var image = cell.GetComponent<Image>();
@@ -213,11 +227,15 @@ namespace SerenaysGambit
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
 
-                // Cubic ease out deceleration
-                float easedT = 1f - Mathf.Pow(1f - t, 3f);
-                float y = Mathf.Lerp(startY, totalTargetY, easedT);
+                // Custom EaseOutBack function for elastic snapping feel (overshoot then pull back)
+                const float c1 = 1.2f; 
+                const float c3 = c1 + 1f;
+                float easedT = 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
 
-                _currentScrollY = y % (_strip.Length * _offset);
+                float y = Mathf.LerpUnclamped(startY, totalTargetY, easedT);
+
+                float maxScroll = _strip.Length * _offset;
+                _currentScrollY = ((y % maxScroll) + maxScroll) % maxScroll;
                 _container.anchoredPosition = new Vector2(0f, _currentScrollY);
 
                 yield return null;

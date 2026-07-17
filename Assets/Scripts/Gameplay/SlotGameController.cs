@@ -330,7 +330,7 @@ namespace SerenaysGambit
 
             if (_lever != null)
             {
-                _lever.IsAvailable = _state.Phase == RunPhase.Playing && _state.RollsRemaining >= _currentBatchFactor && !_isSpinAnimating;
+                _lever.IsAvailable = _state.Phase == RunPhase.Playing && _state.RollsRemaining > 0 && !_isSpinAnimating;
             }
             _refreshButton.interactable = _state.Phase == RunPhase.Playing && _state.RefreshTickets > 0;
             _refreshLabel.text = "Refresh shop (" + _state.RefreshTickets + ")";
@@ -503,6 +503,16 @@ namespace SerenaysGambit
                             OriginalScale = img.rectTransform.localScale,
                             OriginalColor = img.color
                         });
+
+                        // Add a thick gold outline to show slot highlight
+                        var outline = img.gameObject.GetComponent<Outline>();
+                        if (outline == null)
+                        {
+                            outline = img.gameObject.AddComponent<Outline>();
+                        }
+                        outline.enabled = true;
+                        outline.effectColor = new Color(1f, 0.8f, 0f, 1f); // Gold outline
+                        outline.effectDistance = new Vector2(4f, 4f);
                     }
                 }
 
@@ -511,6 +521,14 @@ namespace SerenaysGambit
 
                 // 3. Spawn coins for DOTween suck animation
                 var coins = new List<GameObject>();
+                int loops = result.Score.BatchFactor;
+                float pulseDuration = duration;
+                if (loops > 1)
+                {
+                    pulseDuration = Mathf.Max(0.08f, duration / 2f);
+                }
+                float totalDuration = loops * pulseDuration;
+
                 for (int j = 0; j < cells.Count; j++)
                 {
                     var cell = cells[j];
@@ -525,10 +543,10 @@ namespace SerenaysGambit
                         Vector3 midPos = startPos + burstOffset;
 
                         Sequence seq = DOTween.Sequence();
-                        seq.Append(coin.transform.DOMove(midPos, duration * 0.3f).SetEase(Ease.OutQuad));
-                        seq.Join(coin.transform.DOPunchScale(Vector3.one * 0.2f, duration * 0.3f));
-                        seq.Append(coin.transform.DOMove(_payoutText.transform.position, duration * 0.7f).SetEase(Ease.InQuad));
-                        seq.Join(coin.transform.DOScale(Vector3.zero, duration * 0.7f).SetEase(Ease.InQuad));
+                        seq.Append(coin.transform.DOMove(midPos, totalDuration * 0.3f).SetEase(Ease.OutQuad));
+                        seq.Join(coin.transform.DOPunchScale(Vector3.one * 0.2f, totalDuration * 0.3f));
+                        seq.Append(coin.transform.DOMove(_payoutText.transform.position, totalDuration * 0.7f).SetEase(Ease.InQuad));
+                        seq.Join(coin.transform.DOScale(Vector3.zero, totalDuration * 0.7f).SetEase(Ease.InQuad));
                         seq.OnComplete(() => Destroy(coin));
                     }
                 }
@@ -538,31 +556,41 @@ namespace SerenaysGambit
                 BigInteger startPayout = accumulatedPayout;
                 accumulatedPayout += winPayout;
 
-                float elapsed = 0f;
                 Color highlightColor = new Color(1f, 0.9f, 0.2f, 1f); // Gold glow
 
-                while (elapsed < duration)
+                for (int loop = 0; loop < loops; loop++)
                 {
-                    elapsed += Time.deltaTime;
-                    float progress = Mathf.Clamp01(elapsed / duration);
-
-                    // Scale factor: sine wave peak at 1.18f
-                    float scaleFactor = 1f + 0.18f * Mathf.Sin(progress * Mathf.PI);
-                    float colorBlend = Mathf.Sin(progress * Mathf.PI);
-
-                    for (int c = 0; c < cells.Count; c++)
+                    float elapsed = 0f;
+                    while (elapsed < pulseDuration)
                     {
-                        var cell = cells[c];
-                        cell.Image.rectTransform.localScale = cell.OriginalScale * scaleFactor;
-                        cell.Image.color = Color.Lerp(cell.OriginalColor, highlightColor, colorBlend);
+                        elapsed += Time.deltaTime;
+                        float progress = Mathf.Clamp01(elapsed / pulseDuration);
+
+                        // Scale factor: sine wave peak at 1.18f
+                        float scaleFactor = 1f + 0.18f * Mathf.Sin(progress * Mathf.PI);
+                        float colorBlend = Mathf.Sin(progress * Mathf.PI);
+
+                        for (int c = 0; c < cells.Count; c++)
+                        {
+                            var cell = cells[c];
+                            cell.Image.rectTransform.localScale = cell.OriginalScale * scaleFactor;
+                            cell.Image.color = Color.Lerp(cell.OriginalColor, highlightColor, colorBlend);
+
+                            if (cell.Text != null)
+                            {
+                                cell.Text.transform.localScale = Vector3.one * scaleFactor;
+                                cell.Text.color = Color.Lerp(Color.white, new Color(1f, 0.3f, 0.1f, 1f), colorBlend);
+                            }
+                        }
+
+                        // Lerp display payout based on global progress
+                        float globalProgress = Mathf.Clamp01(((float)loop + progress) / loops);
+                        double doubleProgress = (double)globalProgress;
+                        BigInteger currentDisplay = startPayout + (BigInteger)((double)(accumulatedPayout - startPayout) * doubleProgress);
+                        _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+
+                        yield return null;
                     }
-
-                    // Lerp display payout
-                    double doubleProgress = (double)progress;
-                    BigInteger currentDisplay = startPayout + (BigInteger)((double)(accumulatedPayout - startPayout) * doubleProgress);
-                    _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
-
-                    yield return null;
                 }
 
                 // 5. Restore original scale & color of cells
@@ -571,6 +599,18 @@ namespace SerenaysGambit
                     var cell = cells[c];
                     cell.Image.rectTransform.localScale = cell.OriginalScale;
                     cell.Image.color = cell.OriginalColor;
+
+                    if (cell.Text != null)
+                    {
+                        cell.Text.transform.localScale = Vector3.one;
+                        cell.Text.color = Color.white;
+                    }
+
+                    var outline = cell.Image.GetComponent<Outline>();
+                    if (outline != null)
+                    {
+                        Destroy(outline);
+                    }
                 }
 
                 // Ensure final coins are cleaned up if any sequence was interrupted
