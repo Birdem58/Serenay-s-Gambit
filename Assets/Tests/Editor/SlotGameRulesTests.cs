@@ -129,23 +129,25 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
-        public void MagnetCompletesTheHighestValueEligibleNearMiss()
+        public void BaseOutputMultiplierMultipliesFinalPayout()
         {
             var grid = new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Cherry },
-                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Strawberry },
-                { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Cherry }
+                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
             };
             var modifiers = new RunModifiers();
-            modifiers.IncreaseMagnetTier();
+            var baseline = SlotScoring.Evaluate(grid, modifiers, 1);
 
-            var score = SlotScoring.Evaluate(grid, modifiers, 1);
+            modifiers.IncreaseBaseOutputMultiplier(); // level 1 = x2
+            var doubled = SlotScoring.Evaluate(grid, modifiers, 1);
 
-            Assert.That(score.Wins.Count, Is.EqualTo(1));
-            Assert.That(score.Wins[0].IsMagnetCompletion, Is.True);
-            Assert.That(score.Wins[0].Payline.Name, Is.EqualTo("Middle row"));
-            Assert.That(score.Wins[0].ResolvedSymbol, Is.EqualTo(SymbolKind.Cherry));
+            modifiers.IncreaseBaseOutputMultiplier(); // level 2 = x4
+            var quadrupled = SlotScoring.Evaluate(grid, modifiers, 1);
+
+            Assert.That(doubled.PayoutKurus, Is.EqualTo(baseline.PayoutKurus * 2));
+            Assert.That(quadrupled.PayoutKurus, Is.EqualTo(baseline.PayoutKurus * 4));
         }
 
         [Test]
@@ -269,7 +271,7 @@ namespace SerenaysGambit.Tests
                 new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
                 new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry }
             };
-            var config = new GameRulesConfig(configuredReels, 3, 7, 12, 3, 4, 6, 2);
+            var config = new GameRulesConfig(configuredReels, 3, 7, 12, 3, 4, 6);
             var engine = new SlotGameEngine(23, config);
             var state = engine.CreateNewRun();
             var firstStripBeforeUpgrade = (SymbolKind[])config.ReelStripAt(0).Clone();
@@ -296,9 +298,11 @@ namespace SerenaysGambit.Tests
                 }
             }
 
-            Assert.That(state.Modifiers.IncreaseMagnetTier(), Is.True);
-            Assert.That(state.Modifiers.IncreaseMagnetTier(), Is.True);
-            Assert.That(state.Modifiers.IncreaseMagnetTier(), Is.False);
+            for (int i = 0; i < 9; i++)
+            {
+                Assert.That(state.Modifiers.IncreaseBaseOutputMultiplier(), Is.True);
+            }
+            Assert.That(state.Modifiers.IncreaseBaseOutputMultiplier(), Is.False);
         }
 
         [Test]
@@ -318,13 +322,12 @@ namespace SerenaysGambit.Tests
                 GameBalance.OrganCount,
                 GameBalance.MaxThresholdLevel,
                 GameBalance.FreeSpinBundle,
-                GameBalance.MaxMagnetTier,
                 texts);
             var state = new SlotGameEngine(31, config).CreateNewRun();
             ShopOffer authoredOffer = null;
             foreach (var offer in state.ShopOffers)
             {
-                if (offer.Kind != ShopOfferKind.MagnetTier)
+                if (offer.Kind != ShopOfferKind.BaseOutputMultiplier)
                 {
                     authoredOffer = offer;
                     break;

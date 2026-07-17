@@ -10,8 +10,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 645baf3489d7c4e929d5abc19296b533, type: 3}
-  m_Name: MagnetTier
+  m_Name: BaseOutputMultiplier
   m_EditorClassIdentifier: 
   _kind: 9
-  _displayName: Magnet Tier
-  _description: Completes eligible near-miss paylines.
+  _displayName: Output Multiplier
+  _description: Multiplies all payouts for this run.

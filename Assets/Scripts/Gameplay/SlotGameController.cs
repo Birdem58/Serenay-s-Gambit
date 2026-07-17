@@ -334,7 +334,7 @@ namespace SerenaysGambit
             _organsText.text = "Organs: " + _state.RemainingOrgans + "/" + _state.Config.OrganCount + " (" + OrganStatusText() + ")";
             _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
-            _ownedUpgradesText.text = "Owned\nStrawberry: x" + _state.Modifiers.StrawberryValue + "\nCherry: x" + _state.Modifiers.CherryValue + "\nBanana: x" + _state.Modifiers.BananaValue + "\nOrange: x" + _state.Modifiers.OrangeValue + "\nApple: x" + _state.Modifiers.AppleValue + "\nMoney: x" + _state.Modifiers.MoneyMultiplier + "\nBase rolls: x" + _state.Modifiers.BaseRollMultiplier + "\nFree spins: +" + _state.Modifiers.TemporaryFreeSpins + "\nMagnet: " + _state.Modifiers.MagnetTier + "/" + _state.Config.MaxMagnetTier;
+            _ownedUpgradesText.text = "Owned\nStrawberry: x" + _state.Modifiers.StrawberryValue + "\nCherry: x" + _state.Modifiers.CherryValue + "\nBanana: x" + _state.Modifiers.BananaValue + "\nOrange: x" + _state.Modifiers.OrangeValue + "\nApple: x" + _state.Modifiers.AppleValue + "\nMoney: x" + _state.Modifiers.MoneyMultiplier + "\nBase rolls: x" + _state.Modifiers.BaseRollMultiplier + "\nFree spins: +" + _state.Modifiers.TemporaryFreeSpins + "\nOutput mult: x" + _state.Modifiers.BaseOutputMultiplier;
 
             _spin1xButton.image.color = _currentBatchFactor == 1 ? _buttonSelectedColor : _buttonNormalColor;
             _spin5xButton.image.color = _currentBatchFactor == 5 ? _buttonSelectedColor : _buttonNormalColor;
@@ -393,8 +393,7 @@ namespace SerenaysGambit
                     summary += ", ";
                 }
 
-                var win = result.Score.Wins[index];
-                summary += win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + (win.IsMagnetCompletion ? "+ Magnet" : string.Empty) + ")";
+                summary += win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")";
             }
 
             if (result.ThresholdCleared || result.OrganLost)
@@ -419,8 +418,11 @@ namespace SerenaysGambit
             {
                 for (var column = 0; column < GameBalance.GridColumns; column++)
                 {
-                    _cellTexts[row, column].text = "?";
-                    _cellImages[row, column].color = new Color(0.88f, 0.88f, 0.88f, 1f);
+                    if (_reelScrollers[column] == null)
+                    {
+                        _cellTexts[row, column].text = "?";
+                        _cellImages[row, column].color = new Color(0.88f, 0.88f, 0.88f, 1f);
+                    }
                 }
             }
         }
@@ -445,9 +447,12 @@ namespace SerenaysGambit
             {
                 for (var column = 0; column < GameBalance.GridColumns; column++)
                 {
-                    var symbol = grid[row, column];
-                    _cellTexts[row, column].text = SymbolLabel(symbol);
-                    _cellImages[row, column].color = SymbolColor(symbol);
+                    if (_reelScrollers[column] == null)
+                    {
+                        var symbol = grid[row, column];
+                        _cellTexts[row, column].text = SymbolLabel(symbol);
+                        _cellImages[row, column].color = SymbolColor(symbol);
+                    }
                 }
             }
         }
@@ -535,8 +540,7 @@ namespace SerenaysGambit
                     }
                 }
 
-                // 2. Set result text for current win
-                _resultText.text = "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + (win.IsMagnetCompletion ? " + Magnet" : string.Empty) + ")";
+                _resultText.text = "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")";
 
                 // 3. Spawn coins for DOTween suck animation
                 var coins = new List<GameObject>();
@@ -749,37 +753,17 @@ namespace SerenaysGambit
             if (targetKurus <= 0)
             {
                 _thresholdBarFill.fillAmount = 0f;
-                _thresholdBarBackground.color = new Color(0.12f, 0.12f, 0.12f, 1f);
-                _thresholdBarText.text = "Threshold: " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
+                _thresholdBarText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
                 return;
             }
 
-            BigInteger fillIndexBI = currentCash / targetKurus;
-            BigInteger remainingBI = currentCash % targetKurus;
+            float fraction = (float)((double)currentCash / (double)targetKurus);
+            if (fraction < 0f) fraction = 0f;
+            if (fraction > 1f) fraction = 1f;
 
-            int fillIndex = (int)fillIndexBI;
-            float fraction = (float)((double)remainingBI / (double)targetKurus);
-
-            Color backgroundCol = GetThresholdLayerColor(fillIndex - 1);
-            Color fillCol = GetThresholdLayerColor(fillIndex);
-
-            _thresholdBarBackground.color = backgroundCol;
-            _thresholdBarFill.color = fillCol;
             _thresholdBarFill.fillAmount = fraction;
 
             _thresholdBarText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
-        }
-
-        private Color GetThresholdLayerColor(int layer)
-        {
-            if (layer < 0)
-            {
-                return new Color(0.12f, 0.12f, 0.12f, 1f);
-            }
-
-            Color baseGold = new Color(1f, 0.82f, 0.15f, 1f);
-            float factor = Mathf.Max(0.2f, 1.0f - 0.15f * layer);
-            return new Color(baseGold.r * factor, baseGold.g * factor, baseGold.b * factor, 1f);
         }
 
         private static Transform RequireTransform(Transform root, string path)

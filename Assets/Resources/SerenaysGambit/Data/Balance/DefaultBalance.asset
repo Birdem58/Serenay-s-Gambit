@@ -16,4 +16,3 @@ MonoBehaviour:
   _organCount: 5
   _thresholdCount: 10
   _freeSpinBundle: 20
-  _maxMagnetTier: 5

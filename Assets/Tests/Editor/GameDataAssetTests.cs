@@ -24,7 +24,6 @@ namespace SerenaysGambit.Tests
             Assert.That(balance.BaseRolls, Is.EqualTo(GameBalance.BaseRolls));
             Assert.That(balance.OrganCount, Is.EqualTo(GameBalance.OrganCount));
             Assert.That(balance.ThresholdCount, Is.EqualTo(GameBalance.MaxThresholdLevel));
-            Assert.That(balance.MaxMagnetTier, Is.EqualTo(GameBalance.MaxMagnetTier));
         }
 
         [Test]
@@ -53,7 +52,6 @@ namespace SerenaysGambit.Tests
             Assert.That(config.OrganCount, Is.EqualTo(balance.OrganCount));
             Assert.That(config.ThresholdCount, Is.EqualTo(balance.ThresholdCount));
             Assert.That(config.FreeSpinBundle, Is.EqualTo(balance.FreeSpinBundle));
-            Assert.That(config.MaxMagnetTier, Is.EqualTo(balance.MaxMagnetTier));
             Assert.That(config.FindShopItemText(ShopOfferKind.MoneyMultiplier).DisplayName, Is.EqualTo(moneyMultiplier.DisplayName));
             Assert.That(config.FindShopItemText(ShopOfferKind.MoneyMultiplier).Description, Is.EqualTo(moneyMultiplier.Description));
         }

@@ -36,7 +36,6 @@ namespace SerenaysGambit
                 PositiveOrDefault(balance == null ? 0 : balance.OrganCount, defaults.OrganCount),
                 PositiveOrDefault(balance == null ? 0 : balance.ThresholdCount, defaults.ThresholdCount),
                 NonNegativeOrDefault(balance == null ? -1 : balance.FreeSpinBundle, defaults.FreeSpinBundle),
-                PositiveOrDefault(balance == null ? 0 : balance.MaxMagnetTier, defaults.MaxMagnetTier),
                 shopTexts,
                 customStartingValues);
         }

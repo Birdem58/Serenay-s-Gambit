@@ -33,7 +33,7 @@ namespace SerenaysGambit
         FreeSpins,
         BaseRollMultiplierX2,
         BaseRollMultiplierX10,
-        MagnetTier
+        BaseOutputMultiplier
     }
 
     public struct GridPosition
@@ -176,7 +176,6 @@ namespace SerenaysGambit
             int organCount,
             int thresholdCount,
             int freeSpinBundle,
-            int maxMagnetTier,
             IDictionary<ShopOfferKind, ShopItemText> shopItemTexts = null,
             IDictionary<SymbolKind, int> customStartingValues = null)
         {
@@ -201,7 +200,7 @@ namespace SerenaysGambit
                 _reelStrips[index] = (SymbolKind[])_reelStrips[index].Clone();
             }
 
-            if (strawberryStartingValue < 1 || cherryStartingValue < 1 || baseRolls < 1 || organCount < 1 || thresholdCount < 1 || freeSpinBundle < 0 || maxMagnetTier < 1)
+            if (strawberryStartingValue < 1 || cherryStartingValue < 1 || baseRolls < 1 || organCount < 1 || thresholdCount < 1 || freeSpinBundle < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(baseRolls), "Runtime balance values must be positive, except free spins which may be zero.");
             }
@@ -212,7 +211,6 @@ namespace SerenaysGambit
             OrganCount = organCount;
             ThresholdCount = thresholdCount;
             FreeSpinBundle = freeSpinBundle;
-            MaxMagnetTier = maxMagnetTier;
             _shopItemTexts = shopItemTexts == null
                 ? new Dictionary<ShopOfferKind, ShopItemText>()
                 : new Dictionary<ShopOfferKind, ShopItemText>(shopItemTexts);
@@ -245,7 +243,6 @@ namespace SerenaysGambit
         public int OrganCount { get; private set; }
         public int ThresholdCount { get; private set; }
         public int FreeSpinBundle { get; private set; }
-        public int MaxMagnetTier { get; private set; }
 
         public SymbolKind[] ReelStripAt(int column)
         {
@@ -282,8 +279,7 @@ namespace SerenaysGambit
                 GameBalance.BaseRolls,
                 GameBalance.OrganCount,
                 GameBalance.MaxThresholdLevel,
-                GameBalance.FreeSpinBundle,
-                GameBalance.MaxMagnetTier);
+                GameBalance.FreeSpinBundle);
         }
     }
 
@@ -296,6 +292,8 @@ namespace SerenaysGambit
         {
         }
 
+        private static readonly int[] BaseOutputMultipliers = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 1024 };
+
         public RunModifiers(GameRulesConfig config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -307,7 +305,7 @@ namespace SerenaysGambit
             MoneyMultiplier = BigInteger.One;
             BaseRollMultiplier = 1;
             TemporaryFreeSpins = 0;
-            MagnetTier = 0;
+            BaseOutputMultiplierIndex = 0;
         }
 
         public int StrawberryValue { get { return SymbolValue(SymbolKind.Strawberry); } }
@@ -318,7 +316,17 @@ namespace SerenaysGambit
         public BigInteger MoneyMultiplier { get; private set; }
         public int BaseRollMultiplier { get; private set; }
         public int TemporaryFreeSpins { get; private set; }
-        public int MagnetTier { get; private set; }
+        public int BaseOutputMultiplierIndex { get; private set; }
+
+        public BigInteger BaseOutputMultiplier
+        {
+            get
+            {
+                if (BaseOutputMultiplierIndex < 0) return 1;
+                if (BaseOutputMultiplierIndex >= BaseOutputMultipliers.Length) return BaseOutputMultipliers[BaseOutputMultipliers.Length - 1];
+                return BaseOutputMultipliers[BaseOutputMultiplierIndex];
+            }
+        }
 
         public int StartingRolls
         {
@@ -365,14 +373,14 @@ namespace SerenaysGambit
             return true;
         }
 
-        public bool IncreaseMagnetTier()
+        public bool IncreaseBaseOutputMultiplier()
         {
-            if (MagnetTier >= _config.MaxMagnetTier)
+            if (BaseOutputMultiplierIndex >= BaseOutputMultipliers.Length - 1)
             {
                 return false;
             }
 
-            MagnetTier++;
+            BaseOutputMultiplierIndex++;
             return true;
         }
     }
@@ -447,20 +455,18 @@ namespace SerenaysGambit
 
     public sealed class PaylineWin
     {
-        public PaylineWin(Payline payline, SymbolKind resolvedSymbol, BigInteger linePayoutKurus, bool tripleJoker, bool magnetCompletion)
+        public PaylineWin(Payline payline, SymbolKind resolvedSymbol, BigInteger linePayoutKurus, bool tripleJoker)
         {
             Payline = payline;
             ResolvedSymbol = resolvedSymbol;
             LinePayoutKurus = linePayoutKurus;
             IsTripleJoker = tripleJoker;
-            IsMagnetCompletion = magnetCompletion;
         }
 
         public Payline Payline { get; private set; }
         public SymbolKind ResolvedSymbol { get; private set; }
         public BigInteger LinePayoutKurus { get; private set; }
         public bool IsTripleJoker { get; private set; }
-        public bool IsMagnetCompletion { get; private set; }
     }
 
     public sealed class ScoredSpin
@@ -523,41 +529,6 @@ namespace SerenaysGambit
             return true;
         }
 
-        public static bool TryResolveMagnetCandidate(SymbolKind[] symbols, out SymbolKind resolvedSymbol)
-        {
-            resolvedSymbol = SymbolKind.Joker;
-            var counts = new Dictionary<SymbolKind, int>();
-
-            foreach (var symbol in symbols)
-            {
-                if (symbol == SymbolKind.Joker)
-                {
-                    return false;
-                }
-
-                if (!counts.ContainsKey(symbol))
-                {
-                    counts[symbol] = 0;
-                }
-
-                counts[symbol]++;
-            }
-
-            if (counts.Count != 2)
-            {
-                return false;
-            }
-
-            foreach (var pair in counts)
-            {
-                if (pair.Value == 2)
-                {
-                    resolvedSymbol = pair.Key;
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 
@@ -583,9 +554,9 @@ namespace SerenaysGambit
             return winCount == 2 ? 4 : 9;
         }
 
-        public static BigInteger CalculateFinalPayout(BigInteger rawPayout, int comboMultiplier, BigInteger moneyMultiplier, int batchFactor)
+        public static BigInteger CalculateFinalPayout(BigInteger rawPayout, int comboMultiplier, BigInteger moneyMultiplier, BigInteger baseOutputMultiplier, int batchFactor)
         {
-            return rawPayout * comboMultiplier * moneyMultiplier * batchFactor;
+            return rawPayout * comboMultiplier * moneyMultiplier * baseOutputMultiplier * batchFactor;
         }
     }
 
@@ -609,7 +580,6 @@ namespace SerenaysGambit
             }
 
             var wins = new List<PaylineWin>();
-            var magnetCandidates = new List<PaylineWin>();
 
             foreach (var payline in GameBalance.Paylines)
             {
@@ -619,21 +589,8 @@ namespace SerenaysGambit
 
                 if (MatchResolver.TryResolveWinningLine(symbols, out resolved, out tripleJoker))
                 {
-                    wins.Add(new PaylineWin(payline, resolved, PayoutCalculator.CalculateLinePayout(resolved, modifiers, tripleJoker), tripleJoker, false));
-                    continue;
+                    wins.Add(new PaylineWin(payline, resolved, PayoutCalculator.CalculateLinePayout(resolved, modifiers, tripleJoker), tripleJoker));
                 }
-
-                if (MatchResolver.TryResolveMagnetCandidate(symbols, out resolved))
-                {
-                    magnetCandidates.Add(new PaylineWin(payline, resolved, PayoutCalculator.CalculateLinePayout(resolved, modifiers, false), false, true));
-                }
-            }
-
-            magnetCandidates.Sort(CompareMagnetCandidates);
-            var magnetCount = Math.Min(modifiers.MagnetTier, magnetCandidates.Count);
-            for (var index = 0; index < magnetCount; index++)
-            {
-                wins.Add(magnetCandidates[index]);
             }
 
             var comboMultiplier = PayoutCalculator.ComboMultiplierFor(wins.Count);
@@ -643,19 +600,13 @@ namespace SerenaysGambit
                 rawPayout += win.LinePayoutKurus;
             }
 
-            var finalPayout = PayoutCalculator.CalculateFinalPayout(rawPayout, comboMultiplier, modifiers.MoneyMultiplier, batchFactor);
+            var finalPayout = PayoutCalculator.CalculateFinalPayout(rawPayout, comboMultiplier, modifiers.MoneyMultiplier, modifiers.BaseOutputMultiplier, batchFactor);
             return new ScoredSpin(wins, finalPayout, comboMultiplier, batchFactor);
         }
 
         public static int ComboMultiplierFor(int winCount)
         {
             return PayoutCalculator.ComboMultiplierFor(winCount);
-        }
-
-        private static int CompareMagnetCandidates(PaylineWin left, PaylineWin right)
-        {
-            var payoutComparison = right.LinePayoutKurus.CompareTo(left.LinePayoutKurus);
-            return payoutComparison != 0 ? payoutComparison : left.Payline.Order.CompareTo(right.Payline.Order);
         }
 
         private static SymbolKind[] ReadSymbols(SymbolKind[,] grid, Payline payline)
@@ -865,8 +816,8 @@ namespace SerenaysGambit
                     state.Modifiers.SetBaseRollMultiplier(10);
                     state.RollsRemaining += state.Modifiers.StartingRolls - rollsBeforeUpgrade;
                     break;
-                case ShopOfferKind.MagnetTier:
-                    state.Modifiers.IncreaseMagnetTier();
+                case ShopOfferKind.BaseOutputMultiplier:
+                    state.Modifiers.IncreaseBaseOutputMultiplier();
                     break;
             }
 
@@ -954,9 +905,9 @@ namespace SerenaysGambit
                 options.Add(ShopOfferKind.BaseRollMultiplierX10);
             }
 
-            if (state.Modifiers.MagnetTier < state.Config.MaxMagnetTier)
+            if (state.Modifiers.BaseOutputMultiplierIndex < 9)
             {
-                options.Add(ShopOfferKind.MagnetTier);
+                options.Add(ShopOfferKind.BaseOutputMultiplier);
             }
 
             if (!rerollUnsoldOnly)
@@ -1041,10 +992,14 @@ namespace SerenaysGambit
                     description = "Raises the ten-roll base to one hundred for this run.";
                     cost = target / 2;
                     break;
-                case ShopOfferKind.MagnetTier:
-                    title = "Magnet Tier " + (state.Modifiers.MagnetTier + 1);
-                    description = "Completes up to " + (state.Modifiers.MagnetTier + 1) + " near-miss paylines each board.";
-                    cost = (target / 20) * (state.Modifiers.MagnetTier + 1);
+                case ShopOfferKind.BaseOutputMultiplier:
+                    {
+                        int nextIndex = state.Modifiers.BaseOutputMultiplierIndex + 1;
+                        int nextMultiplier = nextIndex < BaseOutputMultipliers.Length ? BaseOutputMultipliers[nextIndex] : 1024;
+                        title = "Output Mult. x" + nextMultiplier;
+                        description = "Multiplies all payouts by " + nextMultiplier + " for this run.";
+                        cost = (target / 20) * nextIndex;
+                    }
                     break;
                 default:
                     title = "Unknown Offer";
@@ -1062,15 +1017,15 @@ namespace SerenaysGambit
             {
                 if (!string.IsNullOrEmpty(authoredText.DisplayName))
                 {
-                    title = kind == ShopOfferKind.MagnetTier
-                        ? authoredText.DisplayName + " " + (state.Modifiers.MagnetTier + 1)
+                    title = kind == ShopOfferKind.BaseOutputMultiplier
+                        ? authoredText.DisplayName + " x" + (state.Modifiers.BaseOutputMultiplierIndex + 1 < BaseOutputMultipliers.Length ? BaseOutputMultipliers[state.Modifiers.BaseOutputMultiplierIndex + 1] : 1024)
                         : authoredText.DisplayName;
                 }
 
                 if (!string.IsNullOrEmpty(authoredText.Description))
                 {
-                    description = kind == ShopOfferKind.MagnetTier
-                        ? authoredText.Description + " Tier " + (state.Modifiers.MagnetTier + 1) + " completes that many eligible near-miss paylines."
+                    description = kind == ShopOfferKind.BaseOutputMultiplier
+                        ? authoredText.Description + " (x" + (state.Modifiers.BaseOutputMultiplierIndex + 1 < BaseOutputMultipliers.Length ? BaseOutputMultipliers[state.Modifiers.BaseOutputMultiplierIndex + 1] : 1024) + ")"
                         : authoredText.Description;
                 }
             }
