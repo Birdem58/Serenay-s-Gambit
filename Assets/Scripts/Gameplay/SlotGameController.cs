@@ -393,6 +393,7 @@ namespace SerenaysGambit
                     summary += ", ";
                 }
 
+                var win = result.Score.Wins[index];
                 summary += win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")";
             }
 
@@ -502,7 +503,7 @@ namespace SerenaysGambit
             BigInteger accumulatedPayout = BigInteger.Zero;
             var canvas = GameObject.Find("GameCanvas");
             Transform spawnParent = canvas != null ? canvas.transform : transform;
-            BigInteger startCash = _state.CashKurus - result.Score.PayoutKurus;
+            BigInteger startCash = result.CashBeforeSpinKurus;
 
             for (int i = 0; i < wins.Count; i++)
             {
@@ -576,7 +577,7 @@ namespace SerenaysGambit
                 }
 
                 // 4. Run cell scale punch and text lerp over duration
-                BigInteger winPayout = win.LinePayoutKurus * result.Score.ComboMultiplier * _state.Modifiers.MoneyMultiplier * result.Score.BatchFactor;
+                BigInteger winPayout = win.FinalPayoutKurus;
                 BigInteger startPayout = accumulatedPayout;
                 accumulatedPayout += winPayout;
 
@@ -612,7 +613,10 @@ namespace SerenaysGambit
                         double doubleProgress = (double)globalProgress;
                         BigInteger currentDisplay = startPayout + (BigInteger)((double)(accumulatedPayout - startPayout) * doubleProgress);
                         _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
-                        UpdateThresholdBar(startCash + currentDisplay, _state.CurrentTargetKurus);
+                        UpdateThresholdBar(
+                            startCash + currentDisplay,
+                            result.TargetBeforeSpinKurus,
+                            result.ThresholdLevelBeforeSpin);
 
                         yield return null;
                     }
@@ -745,6 +749,11 @@ namespace SerenaysGambit
 
         private void UpdateThresholdBar(BigInteger currentCash, BigInteger targetKurus)
         {
+            UpdateThresholdBar(currentCash, targetKurus, _state.ThresholdLevel);
+        }
+
+        private void UpdateThresholdBar(BigInteger currentCash, BigInteger targetKurus, int thresholdLevel)
+        {
             if (_thresholdBarFill == null || _thresholdBarBackground == null || _thresholdBarText == null)
             {
                 return;
@@ -753,7 +762,7 @@ namespace SerenaysGambit
             if (targetKurus <= 0)
             {
                 _thresholdBarFill.fillAmount = 0f;
-                _thresholdBarText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
+                _thresholdBarText.text = "Threshold " + thresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
                 return;
             }
 
@@ -763,7 +772,7 @@ namespace SerenaysGambit
 
             _thresholdBarFill.fillAmount = fraction;
 
-            _thresholdBarText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
+            _thresholdBarText.text = "Threshold " + thresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(currentCash) + " / " + MoneyFormatter.FormatTL(targetKurus);
         }
 
         private static Transform RequireTransform(Transform root, string path)

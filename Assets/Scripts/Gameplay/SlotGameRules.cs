@@ -320,12 +320,14 @@ namespace SerenaysGambit
 
         public BigInteger BaseOutputMultiplier
         {
-            get
-            {
-                if (BaseOutputMultiplierIndex < 0) return 1;
-                if (BaseOutputMultiplierIndex >= BaseOutputMultipliers.Length) return BaseOutputMultipliers[BaseOutputMultipliers.Length - 1];
-                return BaseOutputMultipliers[BaseOutputMultiplierIndex];
-            }
+            get { return BaseOutputMultiplierForIndex(BaseOutputMultiplierIndex); }
+        }
+
+        public static BigInteger BaseOutputMultiplierForIndex(int index)
+        {
+            if (index < 0) return BigInteger.One;
+            if (index >= BaseOutputMultipliers.Length) return BaseOutputMultipliers[BaseOutputMultipliers.Length - 1];
+            return BaseOutputMultipliers[index];
         }
 
         public int StartingRolls
@@ -460,12 +462,14 @@ namespace SerenaysGambit
             Payline = payline;
             ResolvedSymbol = resolvedSymbol;
             LinePayoutKurus = linePayoutKurus;
+            FinalPayoutKurus = BigInteger.Zero;
             IsTripleJoker = tripleJoker;
         }
 
         public Payline Payline { get; private set; }
         public SymbolKind ResolvedSymbol { get; private set; }
         public BigInteger LinePayoutKurus { get; private set; }
+        public BigInteger FinalPayoutKurus { get; internal set; }
         public bool IsTripleJoker { get; private set; }
     }
 
@@ -494,6 +498,9 @@ namespace SerenaysGambit
         public bool ThresholdCleared { get; internal set; }
         public bool OrganLost { get; internal set; }
         public string LostOrganName { get; internal set; }
+        public BigInteger CashBeforeSpinKurus { get; internal set; }
+        public BigInteger TargetBeforeSpinKurus { get; internal set; }
+        public int ThresholdLevelBeforeSpin { get; internal set; }
     }
 
     public static class MatchResolver
@@ -527,8 +534,6 @@ namespace SerenaysGambit
             }
 
             return true;
-        }
-
         }
     }
 
@@ -598,6 +603,12 @@ namespace SerenaysGambit
             foreach (var win in wins)
             {
                 rawPayout += win.LinePayoutKurus;
+                win.FinalPayoutKurus = PayoutCalculator.CalculateFinalPayout(
+                    win.LinePayoutKurus,
+                    comboMultiplier,
+                    modifiers.MoneyMultiplier,
+                    modifiers.BaseOutputMultiplier,
+                    batchFactor);
             }
 
             var finalPayout = PayoutCalculator.CalculateFinalPayout(rawPayout, comboMultiplier, modifiers.MoneyMultiplier, modifiers.BaseOutputMultiplier, batchFactor);
@@ -683,6 +694,10 @@ namespace SerenaysGambit
                 return RejectedResult("Not enough rolls for that batch.");
             }
 
+            var cashBeforeSpin = state.CashKurus;
+            var targetBeforeSpin = state.CurrentTargetKurus;
+            var thresholdLevelBeforeSpin = state.ThresholdLevel;
+
             state.RollsRemaining -= batchFactor;
             var grid = CreateGrid();
             var score = SlotScoring.Evaluate(grid, state.Modifiers, batchFactor);
@@ -693,7 +708,10 @@ namespace SerenaysGambit
                 Accepted = true,
                 Message = score.Wins.Count == 0 ? "No matching paylines." : "Winning paylines resolved.",
                 Grid = grid,
-                Score = score
+                Score = score,
+                CashBeforeSpinKurus = cashBeforeSpin,
+                TargetBeforeSpinKurus = targetBeforeSpin,
+                ThresholdLevelBeforeSpin = thresholdLevelBeforeSpin
             };
 
             if (TrySettleThreshold(state))
@@ -995,7 +1013,7 @@ namespace SerenaysGambit
                 case ShopOfferKind.BaseOutputMultiplier:
                     {
                         int nextIndex = state.Modifiers.BaseOutputMultiplierIndex + 1;
-                        int nextMultiplier = nextIndex < BaseOutputMultipliers.Length ? BaseOutputMultipliers[nextIndex] : 1024;
+                        var nextMultiplier = RunModifiers.BaseOutputMultiplierForIndex(nextIndex);
                         title = "Output Mult. x" + nextMultiplier;
                         description = "Multiplies all payouts by " + nextMultiplier + " for this run.";
                         cost = (target / 20) * nextIndex;
@@ -1018,14 +1036,14 @@ namespace SerenaysGambit
                 if (!string.IsNullOrEmpty(authoredText.DisplayName))
                 {
                     title = kind == ShopOfferKind.BaseOutputMultiplier
-                        ? authoredText.DisplayName + " x" + (state.Modifiers.BaseOutputMultiplierIndex + 1 < BaseOutputMultipliers.Length ? BaseOutputMultipliers[state.Modifiers.BaseOutputMultiplierIndex + 1] : 1024)
+                        ? authoredText.DisplayName + " x" + RunModifiers.BaseOutputMultiplierForIndex(state.Modifiers.BaseOutputMultiplierIndex + 1)
                         : authoredText.DisplayName;
                 }
 
                 if (!string.IsNullOrEmpty(authoredText.Description))
                 {
                     description = kind == ShopOfferKind.BaseOutputMultiplier
-                        ? authoredText.Description + " (x" + (state.Modifiers.BaseOutputMultiplierIndex + 1 < BaseOutputMultipliers.Length ? BaseOutputMultipliers[state.Modifiers.BaseOutputMultiplierIndex + 1] : 1024) + ")"
+                        ? authoredText.Description + " (x" + RunModifiers.BaseOutputMultiplierForIndex(state.Modifiers.BaseOutputMultiplierIndex + 1) + ")"
                         : authoredText.Description;
                 }
             }

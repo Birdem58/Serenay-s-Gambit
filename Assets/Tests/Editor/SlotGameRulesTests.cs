@@ -151,6 +151,59 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
+        public void FinalPaylinePayoutsIncludeEveryMultiplierAndSumToTheSpinPayout()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
+            };
+            var modifiers = new RunModifiers();
+            modifiers.DoubleMoneyMultiplier();
+            modifiers.IncreaseBaseOutputMultiplier(); // x2
+            modifiers.IncreaseBaseOutputMultiplier(); // x4
+
+            var score = SlotScoring.Evaluate(grid, modifiers, 5);
+            var displayedPayout = BigInteger.Zero;
+            foreach (var win in score.Wins)
+            {
+                displayedPayout += win.FinalPayoutKurus;
+                Assert.That(
+                    win.FinalPayoutKurus,
+                    Is.EqualTo(win.LinePayoutKurus * score.ComboMultiplier * modifiers.MoneyMultiplier * modifiers.BaseOutputMultiplier * score.BatchFactor));
+            }
+
+            Assert.That(displayedPayout, Is.EqualTo(score.PayoutKurus));
+        }
+
+        [Test]
+        public void SpinResultKeepsPreSpinCashAndThresholdForScoreAnimation()
+        {
+            var winningGrid = new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+            };
+            var engine = new SlotGameEngine(1, () => winningGrid);
+            var state = engine.CreateNewRun();
+            var cashBeforeSpin = state.CurrentTargetKurus - 1;
+            var targetBeforeSpin = state.CurrentTargetKurus;
+            var thresholdLevelBeforeSpin = state.ThresholdLevel;
+            state.CashKurus = cashBeforeSpin;
+            state.RollsRemaining = 1;
+
+            var result = engine.TrySpin(state, 1);
+
+            Assert.That(result.Accepted, Is.True);
+            Assert.That(result.ThresholdCleared, Is.True);
+            Assert.That(result.CashBeforeSpinKurus, Is.EqualTo(cashBeforeSpin));
+            Assert.That(result.TargetBeforeSpinKurus, Is.EqualTo(targetBeforeSpin));
+            Assert.That(result.ThresholdLevelBeforeSpin, Is.EqualTo(thresholdLevelBeforeSpin));
+        }
+
+        [Test]
         public void BatchSpinConsumesTheRequestedNumberOfRolls()
         {
             var engine = new SlotGameEngine(1, CreateNoWinGrid);
