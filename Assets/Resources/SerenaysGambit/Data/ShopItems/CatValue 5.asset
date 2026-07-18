@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 645baf3489d7c4e929d5abc19296b533, type: 3}
+  m_Name: CatValue 5
+  m_EditorClassIdentifier: 
+  _kind: 3
+  _displayName: Cat Value +32x
+  _description: Permanently raises Cat line value.
+  _icon: {fileID: 21300000, guid: c89c6c4223e2b414fa5c3d96fca81bbc, type: 3}
+  _symbolImprovementDelta: 32
+  _baseRollMultiplierValue: 0
+  _costDivisor: 10
+  _displayThreshold: 6

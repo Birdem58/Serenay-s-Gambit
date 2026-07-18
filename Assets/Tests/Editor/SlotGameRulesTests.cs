@@ -9,12 +9,12 @@ namespace SerenaysGambit.Tests
         [Test]
         public void ReelStateWrapsTheFiveFaceStripForTheVisibleRows()
         {
-            var mockStrip = new[] { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Kiss };
+            var mockStrip = new[] { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Kiss };
             var reel = new ReelState(mockStrip, 4);
 
             Assert.That(reel.VisibleFaceAt(0), Is.EqualTo(SymbolKind.Kiss));
-            Assert.That(reel.VisibleFaceAt(1), Is.EqualTo(SymbolKind.Strawberry));
-            Assert.That(reel.VisibleFaceAt(2), Is.EqualTo(SymbolKind.Strawberry));
+            Assert.That(reel.VisibleFaceAt(1), Is.EqualTo(SymbolKind.Absolut));
+            Assert.That(reel.VisibleFaceAt(2), Is.EqualTo(SymbolKind.Absolut));
         }
 
         [Test]
@@ -22,9 +22,9 @@ namespace SerenaysGambit.Tests
         {
             var grid = new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut }
             };
 
             var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
@@ -42,9 +42,9 @@ namespace SerenaysGambit.Tests
         {
             var grid = new[,]
             {
-                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar },
-                { SymbolKind.Strawberry, SymbolKind.Kiss, SymbolKind.Strawberry },
-                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar }
+                { SymbolKind.Dollar, SymbolKind.Absolut, SymbolKind.Dollar },
+                { SymbolKind.Absolut, SymbolKind.Kiss, SymbolKind.Absolut },
+                { SymbolKind.Dollar, SymbolKind.Absolut, SymbolKind.Dollar }
             };
 
             var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
@@ -59,7 +59,7 @@ namespace SerenaysGambit.Tests
             }
 
             Assert.That(middleRow, Is.Not.Null);
-            Assert.That(middleRow.ResolvedSymbol, Is.EqualTo(SymbolKind.Strawberry));
+            Assert.That(middleRow.ResolvedSymbol, Is.EqualTo(SymbolKind.Absolut));
             Assert.That(middleRow.IsTripleKiss, Is.False);
         }
 
@@ -125,9 +125,9 @@ namespace SerenaysGambit.Tests
         {
             var grid = new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
                 { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut }
             };
 
             var modifiers = new RunModifiers();
@@ -231,7 +231,7 @@ namespace SerenaysGambit.Tests
                 new GridPosition(0, 0),
                 new GridPosition(0, 1),
                 new GridPosition(0, 2));
-            var batchWin = new PaylineWin(payline, SymbolKind.Orange, new BigInteger(1500), false);
+            var batchWin = new PaylineWin(payline, SymbolKind.Cat, new BigInteger(1500), false);
             var batchScore = new ScoredSpin(
                 new List<PaylineWin> { batchWin },
                 new BigInteger(1500) * 5,
@@ -248,7 +248,7 @@ namespace SerenaysGambit.Tests
             }
             Assert.That(batchMatchEventCount, Is.EqualTo(5));
 
-            var win = new PaylineWin(payline, SymbolKind.Orange, new BigInteger(1500), false, 2);
+            var win = new PaylineWin(payline, SymbolKind.Cat, new BigInteger(1500), false, 2);
             var score = new ScoredSpin(
                 new List<PaylineWin> { win },
                 new BigInteger(1500) * 10,
@@ -289,9 +289,9 @@ namespace SerenaysGambit.Tests
         {
             var grid = new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut }
             };
             var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
             var events = RewardAnimationQueueBuilder.Build(score);
@@ -322,9 +322,9 @@ namespace SerenaysGambit.Tests
         {
             var grid = new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
                 { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut }
             };
 
             var modifiers = new RunModifiers();
@@ -343,7 +343,7 @@ namespace SerenaysGambit.Tests
             var grid = new[,]
             {
                 { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
                 { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
             };
             var modifiers = new RunModifiers();
@@ -365,7 +365,7 @@ namespace SerenaysGambit.Tests
             var grid = new[,]
             {
                 { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
                 { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
             };
             var modifiers = new RunModifiers();
@@ -391,9 +391,9 @@ namespace SerenaysGambit.Tests
         {
             var winningGrid = new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut }
             };
             var engine = new SlotGameEngine(1, () => winningGrid);
             var state = engine.CreateNewRun();
@@ -572,14 +572,14 @@ namespace SerenaysGambit.Tests
 
             Assert.That(state.RollsRemaining, Is.EqualTo(12));
             Assert.That(state.RemainingOrgans, Is.EqualTo(3));
-            Assert.That(state.Modifiers.StrawberryValue, Is.EqualTo(3));
+            Assert.That(state.Modifiers.AbsolutValue, Is.EqualTo(3));
             Assert.That(state.Modifiers.DollarValue, Is.EqualTo(7));
 
             state.ShopOffers.Clear();
-            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, BigInteger.Zero, "Strawberry Value +1x", "Test offer"));
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.AbsolutValue, BigInteger.Zero, "Absolut Value +1x", "Test offer"));
             string message;
             Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
-            Assert.That(state.Modifiers.StrawberryValue, Is.EqualTo(4));
+            Assert.That(state.Modifiers.AbsolutValue, Is.EqualTo(4));
             Assert.That(config.ReelStripAt(0), Is.EqualTo(firstStripBeforeUpgrade));
 
             var spin = engine.TrySpin(state, 1);
@@ -769,7 +769,7 @@ namespace SerenaysGambit.Tests
             Assert.That(result.Score.BatchFactor, Is.EqualTo(8));
             Assert.That(state.Stats.RollsUsed, Is.EqualTo(8));
             Assert.That(state.Stats.TotalEarnedKurus, Is.EqualTo(result.Score.PayoutKurus));
-            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Strawberry).WinningPaylineCount, Is.EqualTo(1));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Absolut).WinningPaylineCount, Is.EqualTo(1));
             Assert.That(state.Stats.GetSymbolStats(SymbolKind.Dollar).WinningPaylineCount, Is.EqualTo(1));
             Assert.That(state.Stats.GetSymbolStats(SymbolKind.Cigarette).WinningPaylineCount, Is.EqualTo(1));
             Assert.That(state.Stats.GetSymbolStats(SymbolKind.Kiss).WinningPaylineCount, Is.EqualTo(0));
@@ -782,7 +782,7 @@ namespace SerenaysGambit.Tests
 
             Assert.That(attributedPayout, Is.EqualTo(result.Score.PayoutKurus));
             Assert.That(
-                state.Stats.GetSymbolStats(SymbolKind.Strawberry).GeneratedKurus,
+                state.Stats.GetSymbolStats(SymbolKind.Absolut).GeneratedKurus,
                 Is.EqualTo(result.Score.Wins[0].FinalPayoutKurus));
         }
 
@@ -832,18 +832,18 @@ namespace SerenaysGambit.Tests
             var engine = new SlotGameEngine(1);
             var state = engine.CreateNewRun();
             state.ShopOffers.Clear();
-            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, BigInteger.Zero, "Strawberry", "Test offer"));
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.AbsolutValue, BigInteger.Zero, "Absolut", "Test offer"));
             string message;
 
             Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
-            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.StrawberryValue), Is.EqualTo(1));
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.AbsolutValue), Is.EqualTo(1));
 
-            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, BigInteger.Zero, "Strawberry", "Test offer"));
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.AbsolutValue, BigInteger.Zero, "Absolut", "Test offer"));
             Assert.That(engine.TryPurchase(state, 1, out message), Is.True);
-            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.StrawberryValue), Is.EqualTo(2));
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.AbsolutValue), Is.EqualTo(2));
 
             var restarted = engine.CreateNewRun();
-            Assert.That(restarted.OwnedUpgradeCount(ShopOfferKind.StrawberryValue), Is.EqualTo(0));
+            Assert.That(restarted.OwnedUpgradeCount(ShopOfferKind.AbsolutValue), Is.EqualTo(0));
         }
 
         [Test]
@@ -918,9 +918,9 @@ namespace SerenaysGambit.Tests
         {
             return new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Strawberry },
-                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar },
-                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar }
+                { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Absolut },
+                { SymbolKind.Dollar, SymbolKind.Absolut, SymbolKind.Dollar },
+                { SymbolKind.Dollar, SymbolKind.Absolut, SymbolKind.Dollar }
             };
         }
 
@@ -928,7 +928,7 @@ namespace SerenaysGambit.Tests
         {
             return new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
                 { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
                 { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
             };
@@ -941,23 +941,23 @@ namespace SerenaysGambit.Tests
                 case PaylineGroup.Horizontal:
                     return new[,]
                     {
-                        { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                        { SymbolKind.Absolut, SymbolKind.Absolut, SymbolKind.Absolut },
                         { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
                         { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
                     };
                 case PaylineGroup.Vertical:
                     return new[,]
                     {
-                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Cigarette },
-                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Cigarette },
-                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Cigarette }
+                        { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Cigarette },
+                        { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Cigarette },
+                        { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Cigarette }
                     };
                 case PaylineGroup.CrissCross:
                     return new[,]
                     {
-                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Strawberry },
-                        { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar },
-                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Strawberry }
+                        { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Absolut },
+                        { SymbolKind.Dollar, SymbolKind.Absolut, SymbolKind.Dollar },
+                        { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Absolut }
                     };
                 default:
                     throw new System.ArgumentOutOfRangeException(nameof(group));
@@ -979,7 +979,7 @@ namespace SerenaysGambit.Tests
         {
             var configs = new Dictionary<ShopOfferKind, ShopItemConfig>
             {
-                { ShopOfferKind.StrawberryValue, new ShopItemConfig("Strawberry Boost", "Add +5 value", symbolImprovementDelta: 5, costDivisor: 50) },
+                { ShopOfferKind.AbsolutValue, new ShopItemConfig("Absolut Boost", "Add +5 value", symbolImprovementDelta: 5, costDivisor: 50) },
                 { ShopOfferKind.BaseRollMultiplierX2, new ShopItemConfig("Roll Double", "Roll mult 4", baseRollMultiplierValue: 4, costDivisor: 5) }
             };
 
@@ -998,14 +998,14 @@ namespace SerenaysGambit.Tests
 
             // Clear shop and manually add the offers we want to test
             state.ShopOffers.Clear();
-            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, state.CurrentTargetKurus / 50, "Strawberry Boost", "Add +5 value"));
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.AbsolutValue, state.CurrentTargetKurus / 50, "Absolut Boost", "Add +5 value"));
             state.ShopOffers.Add(new ShopOffer(ShopOfferKind.BaseRollMultiplierX2, state.CurrentTargetKurus / 5, "Roll Double", "Roll mult 4"));
 
-            // 1. Purchase strawberry boost and check that delta is 5 instead of default 1
+            // 1. Purchase absolut boost and check that delta is 5 instead of default 1
             state.CashKurus = state.CurrentTargetKurus;
-            var initialStrawberryValue = state.Modifiers.SymbolValue(SymbolKind.Strawberry);
+            var initialAbsolutValue = state.Modifiers.SymbolValue(SymbolKind.Absolut);
             Assert.That(engine.TryPurchase(state, 0, out _), Is.True);
-            Assert.That(state.Modifiers.SymbolValue(SymbolKind.Strawberry), Is.EqualTo(initialStrawberryValue + 5));
+            Assert.That(state.Modifiers.SymbolValue(SymbolKind.Absolut), Is.EqualTo(initialAbsolutValue + 5));
 
             // 2. Purchase base roll multiplier and check that multiplier is 4 instead of default 2
             Assert.That(engine.TryPurchase(state, 1, out _), Is.True);
@@ -1016,12 +1016,12 @@ namespace SerenaysGambit.Tests
         public void ShopItemsAreFilteredByDisplayThreshold()
         {
             // Set up shop items with different DisplayThreshold requirements:
-            // - StrawberryValue: DisplayThreshold = ThresholdLevel.Threshold2
+            // - AbsolutValue: DisplayThreshold = ThresholdLevel.Threshold2
             // - DollarValue: DisplayThreshold = ThresholdLevel.Threshold1
             // - CigaretteValue: DisplayThreshold = ThresholdLevel.Any (always displayed)
             var configs = new Dictionary<ShopOfferKind, ShopItemConfig>
             {
-                { ShopOfferKind.StrawberryValue, new ShopItemConfig("Strawberry Boost", "Description", displayThreshold: ThresholdLevel.Threshold2) },
+                { ShopOfferKind.AbsolutValue, new ShopItemConfig("Absolut Boost", "Description", displayThreshold: ThresholdLevel.Threshold2) },
                 { ShopOfferKind.DollarValue, new ShopItemConfig("Dollar Boost", "Description", displayThreshold: ThresholdLevel.Threshold1) },
                 { ShopOfferKind.CigaretteValue, new ShopItemConfig("Cigarette Boost", "Description", displayThreshold: ThresholdLevel.Any) }
             };
@@ -1040,11 +1040,11 @@ namespace SerenaysGambit.Tests
             var state = engine.CreateNewRun();
 
             // At ThresholdLevel = 1:
-            // DollarValue (1) and CigaretteValue (0) are allowed. StrawberryValue (2) is forbidden.
+            // DollarValue (1) and CigaretteValue (0) are allowed. AbsolutValue (2) is forbidden.
             Assert.That(state.ThresholdLevel, Is.EqualTo(1));
             foreach (var offer in state.ShopOffers)
             {
-                Assert.That(offer.Kind, Is.Not.EqualTo(ShopOfferKind.StrawberryValue));
+                Assert.That(offer.Kind, Is.Not.EqualTo(ShopOfferKind.AbsolutValue));
             }
 
             // Settle threshold to advance to level 2:
@@ -1054,7 +1054,7 @@ namespace SerenaysGambit.Tests
             Assert.That(state.ThresholdLevel, Is.EqualTo(2));
 
             // At ThresholdLevel = 2:
-            // StrawberryValue (2) and CigaretteValue (0) are allowed. DollarValue (1) is forbidden.
+            // AbsolutValue (2) and CigaretteValue (0) are allowed. DollarValue (1) is forbidden.
             foreach (var offer in state.ShopOffers)
             {
                 Assert.That(offer.Kind, Is.Not.EqualTo(ShopOfferKind.DollarValue));

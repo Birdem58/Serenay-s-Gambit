@@ -32,7 +32,7 @@ namespace SerenaysGambit
 
             return new GameRulesConfig(
                 ExtractReelStrips(reelDefinitions, defaults),
-                FindSymbolValue(symbols, SymbolKind.Strawberry, defaults.StrawberryStartingValue),
+                FindSymbolValue(symbols, SymbolKind.Absolut, defaults.AbsolutStartingValue),
                 FindSymbolValue(symbols, SymbolKind.Dollar, defaults.DollarStartingValue),
                 PositiveOrDefault(balance == null ? 0 : balance.BaseRolls, defaults.BaseRolls),
                 PositiveOrDefault(balance == null ? 0 : balance.OrganCount, defaults.OrganCount),

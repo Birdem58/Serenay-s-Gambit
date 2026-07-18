@@ -7267,7 +7267,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1196997907
 RectTransform:
   m_ObjectHideFlags: 0
@@ -9734,6 +9734,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _animationSettings: {fileID: 11400000, guid: 8e51d9db27ab346a480e1a404c2186d1, type: 2}
+  _celebrationAnimationSettings: {fileID: 11400000, guid: 82a6b22eae6a4da8bf3798660b236d46, type: 2}
   _ownedUpgradePrefab: {fileID: 8284629452447737699, guid: 1b8e8c88fd45b413abe8cab61b6cf591, type: 3}
 --- !u!4 &1666850883
 Transform:

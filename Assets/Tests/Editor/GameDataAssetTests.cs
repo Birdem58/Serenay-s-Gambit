@@ -9,14 +9,27 @@ namespace SerenaysGambit.Tests
         [Test]
         public void DefaultDataAssetsMatchTheInitialSliceConfiguration()
         {
-            var strawberry = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Strawberry.asset");
+            var absolut = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Absolut.asset");
             var reel1 = AssetDatabase.LoadAssetAtPath<ReelDefinition>("Assets/Resources/SerenaysGambit/Data/Reels/Reel1.asset");
             var moneyMultiplier = AssetDatabase.LoadAssetAtPath<ShopItemDefinition>("Assets/Resources/SerenaysGambit/Data/ShopItems/MoneyMultiplier.asset");
             var balance = AssetDatabase.LoadAssetAtPath<BalanceDefinition>("Assets/Resources/SerenaysGambit/Data/Balance/DefaultBalance.asset");
 
-            Assert.That(strawberry, Is.Not.Null);
-            Assert.That(strawberry.Symbol, Is.EqualTo(SymbolKind.Strawberry));
-            Assert.That(strawberry.StartingValue, Is.EqualTo(1));
+            Assert.That(absolut, Is.Not.Null);
+            Assert.That(absolut.Symbol, Is.EqualTo(SymbolKind.Absolut));
+            Assert.That(absolut.DisplayName, Is.EqualTo("Absolut"));
+            Assert.That(absolut.StartingValue, Is.EqualTo(1));
+            Assert.That(absolut.RotationImage, Is.Not.Null);
+            Assert.That(absolut.Icon, Is.SameAs(absolut.RotationImage));
+            Assert.That(absolut.ScoreAnimation, Is.Not.Null);
+
+            var cat = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Cat.asset");
+            Assert.That(cat, Is.Not.Null);
+            Assert.That(cat.Symbol, Is.EqualTo(SymbolKind.Cat));
+            Assert.That(cat.DisplayName, Is.EqualTo("Cat"));
+            Assert.That(cat.StartingValue, Is.EqualTo(15));
+            Assert.That(cat.RotationImage, Is.Not.Null);
+            Assert.That(cat.Icon, Is.SameAs(cat.RotationImage));
+            Assert.That(cat.ScoreAnimation, Is.Not.Null);
 
             var cigarette = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Cigarette.asset");
             Assert.That(cigarette, Is.Not.Null);
@@ -55,7 +68,7 @@ namespace SerenaysGambit.Tests
 
             try
             {
-                definition.Initialize(SymbolKind.Strawberry, "Strawberry", 1, rotationImage, scoreAnimation);
+                definition.Initialize(SymbolKind.Absolut, "Absolut", 1, rotationImage, scoreAnimation);
 
                 Assert.That(definition.RotationImage, Is.SameAs(rotationImage));
                 Assert.That(definition.ScoreAnimation, Is.SameAs(scoreAnimation));
@@ -72,8 +85,9 @@ namespace SerenaysGambit.Tests
         [Test]
         public void DefaultAuthoredAssetsBuildTheRuntimeRulesSnapshot()
         {
-            var strawberry = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Strawberry.asset");
+            var absolut = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Absolut.asset");
             var dollar = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Dollar.asset");
+            var cat = AssetDatabase.LoadAssetAtPath<SymbolDefinition>("Assets/Resources/SerenaysGambit/Data/Symbols/Cat.asset");
             var reel1 = AssetDatabase.LoadAssetAtPath<ReelDefinition>("Assets/Resources/SerenaysGambit/Data/Reels/Reel1.asset");
             var reel2 = AssetDatabase.LoadAssetAtPath<ReelDefinition>("Assets/Resources/SerenaysGambit/Data/Reels/Reel2.asset");
             var reel3 = AssetDatabase.LoadAssetAtPath<ReelDefinition>("Assets/Resources/SerenaysGambit/Data/Reels/Reel3.asset");
@@ -81,13 +95,14 @@ namespace SerenaysGambit.Tests
             var balance = AssetDatabase.LoadAssetAtPath<BalanceDefinition>("Assets/Resources/SerenaysGambit/Data/Balance/DefaultBalance.asset");
 
             var config = RuntimeGameConfigFactory.Create(
-                new[] { strawberry, dollar },
+                new[] { absolut, dollar, cat },
                 new[] { reel1, reel2, reel3 },
                 new[] { moneyMultiplier },
                 balance);
 
-            Assert.That(config.StrawberryStartingValue, Is.EqualTo(strawberry.StartingValue));
+            Assert.That(config.AbsolutStartingValue, Is.EqualTo(absolut.StartingValue));
             Assert.That(config.DollarStartingValue, Is.EqualTo(dollar.StartingValue));
+            Assert.That(config.GetStartingValue(SymbolKind.Cat), Is.EqualTo(cat.StartingValue));
             Assert.That(config.ReelStripAt(0), Is.EqualTo(reel1.Faces));
             Assert.That(config.ReelStripAt(1), Is.EqualTo(reel2.Faces));
             Assert.That(config.ReelStripAt(2), Is.EqualTo(reel3.Faces));
@@ -117,15 +132,15 @@ namespace SerenaysGambit.Tests
         [Test]
         public void GambitItemAssetsExposeEveryThresholdChoice()
         {
-            var strawberry = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/StrawberryGambit.asset");
+            var absolut = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/AbsolutGambit.asset");
             var batchTen = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/BatchTenGambit.asset");
             var kiss = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/Kiss1000xGambit.asset");
             var cigarette = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/CigaretteDecayGambit.asset");
 
-            Assert.That(strawberry, Is.Not.Null);
-            Assert.That(strawberry.Kind, Is.EqualTo(GambitKind.Strawberry));
-            Assert.That(strawberry.PayoutMultiplier, Is.EqualTo(10));
-            Assert.That(strawberry.SacrificePercent, Is.EqualTo(25));
+            Assert.That(absolut, Is.Not.Null);
+            Assert.That(absolut.Kind, Is.EqualTo(GambitKind.Absolut));
+            Assert.That(absolut.PayoutMultiplier, Is.EqualTo(10));
+            Assert.That(absolut.SacrificePercent, Is.EqualTo(25));
             Assert.That(batchTen, Is.Not.Null);
             Assert.That(batchTen.Kind, Is.EqualTo(GambitKind.BatchTen));
             Assert.That(batchTen.RollMultiplier, Is.EqualTo(10));
@@ -142,7 +157,7 @@ namespace SerenaysGambit.Tests
         [Test]
         public void AuthoredGambitValuesBuildTheRuntimeConfig()
         {
-            var strawberry = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/StrawberryGambit.asset");
+            var absolut = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/AbsolutGambit.asset");
             var batchTen = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/BatchTenGambit.asset");
             var kiss = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/Kiss1000xGambit.asset");
             var cigarette = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/CigaretteDecayGambit.asset");
@@ -152,9 +167,9 @@ namespace SerenaysGambit.Tests
                 null,
                 null,
                 null,
-                new[] { strawberry, batchTen, kiss, cigarette });
+                new[] { absolut, batchTen, kiss, cigarette });
 
-            Assert.That(config.FindGambitItemConfig(GambitKind.Strawberry).PayoutMultiplier, Is.EqualTo(strawberry.PayoutMultiplier));
+            Assert.That(config.FindGambitItemConfig(GambitKind.Absolut).PayoutMultiplier, Is.EqualTo(absolut.PayoutMultiplier));
             Assert.That(config.FindGambitItemConfig(GambitKind.BatchTen).RollMultiplier, Is.EqualTo(batchTen.RollMultiplier));
             Assert.That(config.FindGambitItemConfig(GambitKind.Kiss1000x).RiskPercent, Is.EqualTo(kiss.RiskPercent));
             Assert.That(config.FindGambitItemConfig(GambitKind.CigaretteDecay).DecayPerMiss, Is.EqualTo(cigarette.DecayPerMiss));

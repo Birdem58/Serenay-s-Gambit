@@ -39,6 +39,7 @@ namespace SerenaysGambit
         private readonly bool[] _hasOriginalReelPositions = new bool[GameBalance.GridColumns];
 
         [SerializeField] private RewardAnimationSettings _animationSettings;
+        [SerializeField] private CelebrationAnimationSettings _celebrationAnimationSettings;
         private readonly List<GameObject> _rewardTextPool = new List<GameObject>();
         private readonly List<GameObject> _allRewardTextObjects = new List<GameObject>();
 
@@ -84,6 +85,15 @@ namespace SerenaysGambit
         private Button _victoryRestartButton;
         private GameObject _gameOverOverlay;
         private GameObject _victoryOverlay;
+        private GameObject _thresholdCongratulationsOverlay;
+        private TextMeshProUGUI _thresholdCongratulationsText;
+        private GameObject _maxPlusWinOverlay;
+        private Image _winningItemImage;
+        private SymbolScoreAnimationPlayer _winningItemAnimationPlayer;
+        private TextMeshProUGUI _winningItemNameText;
+        private TextMeshProUGUI _maxPlusWinTitleText;
+        private RectTransform _winningItemRect;
+        private RectTransform _maxPlusWinTitleRect;
         private TextMeshProUGUI _gameOverRunStatsText;
         private TextMeshProUGUI _victoryRunStatsText;
         private Canvas _gameCanvas;
@@ -97,6 +107,12 @@ namespace SerenaysGambit
 
         private void Start()
         {
+
+            if (_celebrationAnimationSettings == null)
+            {
+                _celebrationAnimationSettings = Resources.Load<CelebrationAnimationSettings>(
+                    "SerenaysGambit/Data/CelebrationAnimationSettings");
+            }
 
             _symbolDefinitions = Resources.LoadAll<SymbolDefinition>("SerenaysGambit/Data/Symbols");
             _reelDefinitions = Resources.LoadAll<ReelDefinition>("SerenaysGambit/Data/Reels");
@@ -231,6 +247,18 @@ namespace SerenaysGambit
 
         private void OnDestroy()
         {
+            if (_thresholdCongratulationsOverlay != null)
+            {
+                DOTween.Kill(_thresholdCongratulationsOverlay);
+                _thresholdCongratulationsOverlay.SetActive(false);
+            }
+
+            if (_maxPlusWinOverlay != null)
+            {
+                DOTween.Kill(_maxPlusWinOverlay);
+                _maxPlusWinOverlay.SetActive(false);
+            }
+
             if (_mainContent != null)
             {
                 _mainContent.DOComplete();
@@ -306,6 +334,14 @@ namespace SerenaysGambit
             _payoutText.text = FormatSidebarPayout(MoneyFormatter.FormatTL(BigInteger.Zero), 1, 1);
             _gameOverOverlay.SetActive(false);
             _victoryOverlay.SetActive(false);
+            if (_thresholdCongratulationsOverlay != null)
+            {
+                _thresholdCongratulationsOverlay.SetActive(false);
+            }
+            if (_maxPlusWinOverlay != null)
+            {
+                _maxPlusWinOverlay.SetActive(false);
+            }
             RefreshEndScreenStats();
             RefreshView();
         }
@@ -407,9 +443,19 @@ namespace SerenaysGambit
                 _resultText.text = BuildResultSummary(result);
             }
 
+            if (result.MaxPlusWin != null)
+            {
+                yield return StartCoroutine(ShowMaxPlusWin(result.MaxPlusWin));
+            }
+
+            if (result.ThresholdCleared)
+            {
+                yield return StartCoroutine(ShowThresholdCongratulations(result));
+            }
+
             _isSpinAnimating = false;
 
-            if (result.JokerLostOnLeftReel)
+            if (result.KissLostOnLeftReel)
             {
                 if (_reelScrollers[0] != null)
                 {
@@ -532,6 +578,21 @@ namespace SerenaysGambit
                 _victoryRunStatsText = Require<TextMeshProUGUI>(root, "VictoryOverlay/RunStatsText");
                 _gameOverRestartButton = Require<Button>(root, "GameOverOverlay/RestartButton");
                 _victoryRestartButton = Require<Button>(root, "VictoryOverlay/RestartButton");
+
+                _thresholdCongratulationsOverlay = RequireTransform(root, "ThresholdCongratulationsOverlay").gameObject;
+                _thresholdCongratulationsText = Require<TextMeshProUGUI>(root, "ThresholdCongratulationsOverlay/Panel/Message");
+
+                _maxPlusWinOverlay = RequireTransform(root, "MaxPlusWinOverlay").gameObject;
+                _winningItemImage = Require<Image>(root, "MaxPlusWinOverlay/WinningItem");
+                _winningItemAnimationPlayer = _winningItemImage.GetComponent<SymbolScoreAnimationPlayer>();
+                if (_winningItemAnimationPlayer == null)
+                {
+                    _winningItemAnimationPlayer = _winningItemImage.gameObject.AddComponent<SymbolScoreAnimationPlayer>();
+                }
+                _winningItemNameText = Require<TextMeshProUGUI>(root, "MaxPlusWinOverlay/WinningItemName");
+                _maxPlusWinTitleText = Require<TextMeshProUGUI>(root, "MaxPlusWinOverlay/MaxPlusWinTitle");
+                _winningItemRect = _winningItemImage.GetComponent<RectTransform>();
+                _maxPlusWinTitleRect = _maxPlusWinTitleText.GetComponent<RectTransform>();
             }
             catch (InvalidOperationException exception)
             {
@@ -540,9 +601,9 @@ namespace SerenaysGambit
             }
 
             _lever.OnPulled = delegate { Spin(_currentBatchFactor); };
-            _spin1xButton.onClick.AddListener(delegate { _currentBatchFactor = 1; RefreshView(); });
-            _spin5xButton.onClick.AddListener(delegate { _currentBatchFactor = 5; RefreshView(); });
-            _spin10xButton.onClick.AddListener(delegate { _currentBatchFactor = 10; RefreshView(); });
+            _spin1xButton.onClick.AddListener(delegate { Spin(1); });
+            _spin5xButton.onClick.AddListener(delegate { Spin(5); });
+            _spin10xButton.onClick.AddListener(delegate { Spin(10); });
             _refreshButton.onClick.AddListener(RefreshShop);
             _gameOverRestartButton.onClick.AddListener(StartNewRun);
             _victoryRestartButton.onClick.AddListener(StartNewRun);
@@ -805,10 +866,10 @@ namespace SerenaysGambit
         {
             switch (kind)
             {
-                case GambitKind.Strawberry: return "SG";
+                case GambitKind.Absolut: return "AG";
                 case GambitKind.BatchTen: return "TB";
-                case GambitKind.Joker1000x: return "J1K";
-                case GambitKind.AppleDecay: return "AD";
+                case GambitKind.Kiss1000x: return "K1K";
+                case GambitKind.CigaretteDecay: return "CD";
                 default: return "?";
             }
         }
@@ -817,10 +878,10 @@ namespace SerenaysGambit
         {
             switch (kind)
             {
-                case GambitKind.Strawberry: return new Color(0.85f, 0.2f, 0.3f, 1f);
+                case GambitKind.Absolut: return new Color(0.85f, 0.2f, 0.3f, 1f);
                 case GambitKind.BatchTen: return new Color(0.2f, 0.6f, 0.8f, 1f);
-                case GambitKind.Joker1000x: return new Color(0.7f, 0.3f, 0.85f, 1f);
-                case GambitKind.AppleDecay: return new Color(0.95f, 0.65f, 0.1f, 1f);
+                case GambitKind.Kiss1000x: return new Color(0.7f, 0.3f, 0.85f, 1f);
+                case GambitKind.CigaretteDecay: return new Color(0.95f, 0.65f, 0.1f, 1f);
                 default: return new Color(0.5f, 0.5f, 0.5f, 1f);
             }
         }
@@ -1194,11 +1255,11 @@ namespace SerenaysGambit
         {
             switch (kind)
             {
-                case ShopOfferKind.StrawberryValue: return "Current Strawberry value: x" + _state.Modifiers.StrawberryValue;
-                case ShopOfferKind.CherryValue: return "Current Cherry value: x" + _state.Modifiers.CherryValue;
-                case ShopOfferKind.BananaValue: return "Current Banana value: x" + _state.Modifiers.BananaValue;
-                case ShopOfferKind.OrangeValue: return "Current Orange value: x" + _state.Modifiers.OrangeValue;
-                case ShopOfferKind.AppleValue: return "Current Apple value: x" + _state.Modifiers.AppleValue;
+                case ShopOfferKind.AbsolutValue: return "Current Absolut value: x" + _state.Modifiers.AbsolutValue;
+                case ShopOfferKind.DollarValue: return "Current Dollar value: x" + _state.Modifiers.DollarValue;
+                case ShopOfferKind.KissValue: return "Current Kiss value: x" + _state.Modifiers.KissValue;
+                case ShopOfferKind.CatValue: return "Current Cat value: x" + _state.Modifiers.CatValue;
+                case ShopOfferKind.CigaretteValue: return "Current Cigarette value: x" + _state.Modifiers.CigaretteValue;
                 case ShopOfferKind.MoneyMultiplier: return "Current money multiplier: x" + _state.Modifiers.MoneyMultiplier;
                 case ShopOfferKind.FreeSpins: return "Active free spins: +" + _state.Modifiers.TemporaryFreeSpins;
                 case ShopOfferKind.BaseRollMultiplierX2:
@@ -1215,11 +1276,11 @@ namespace SerenaysGambit
         {
             switch (kind)
             {
-                case ShopOfferKind.StrawberryValue: return "S";
-                case ShopOfferKind.CherryValue: return "C";
-                case ShopOfferKind.BananaValue: return "B";
-                case ShopOfferKind.OrangeValue: return "O";
-                case ShopOfferKind.AppleValue: return "A";
+                case ShopOfferKind.AbsolutValue: return "A";
+                case ShopOfferKind.DollarValue: return "D";
+                case ShopOfferKind.KissValue: return "K";
+                case ShopOfferKind.CatValue: return "C";
+                case ShopOfferKind.CigaretteValue: return "C";
                 case ShopOfferKind.MoneyMultiplier: return "TL";
                 case ShopOfferKind.FreeSpins: return "+";
                 case ShopOfferKind.BaseRollMultiplierX2: return "R2";
@@ -1236,11 +1297,11 @@ namespace SerenaysGambit
         {
             switch (kind)
             {
-                case ShopOfferKind.StrawberryValue: return new Color(0.85f, 0.36f, 0.42f, 1f);
-                case ShopOfferKind.CherryValue: return new Color(0.72f, 0.25f, 0.32f, 1f);
-                case ShopOfferKind.BananaValue: return new Color(0.95f, 0.78f, 0.26f, 1f);
-                case ShopOfferKind.OrangeValue: return new Color(0.94f, 0.49f, 0.18f, 1f);
-                case ShopOfferKind.AppleValue: return new Color(0.53f, 0.72f, 0.33f, 1f);
+                case ShopOfferKind.AbsolutValue: return new Color(0.85f, 0.36f, 0.42f, 1f);
+                case ShopOfferKind.DollarValue: return new Color(0.72f, 0.25f, 0.32f, 1f);
+                case ShopOfferKind.KissValue: return new Color(0.95f, 0.78f, 0.26f, 1f);
+                case ShopOfferKind.CatValue: return new Color(0.94f, 0.49f, 0.18f, 1f);
+                case ShopOfferKind.CigaretteValue: return new Color(0.53f, 0.72f, 0.33f, 1f);
                 case ShopOfferKind.MoneyMultiplier: return new Color(0.30f, 0.66f, 0.45f, 1f);
                 case ShopOfferKind.FreeSpins: return new Color(0.34f, 0.62f, 0.85f, 1f);
                 case ShopOfferKind.BaseRollMultiplierX2:
@@ -1271,7 +1332,7 @@ namespace SerenaysGambit
                 }
 
                 var win = result.Score.Wins[index];
-                summary += win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")";
+                summary += win.Payline.Name + " (" + (win.IsTripleKiss ? "Triple Kiss" : win.ResolvedSymbol.ToString()) + ")";
             }
 
             if (result.ThresholdCleared || result.OrganLost)
@@ -1307,12 +1368,11 @@ namespace SerenaysGambit
             summary.AppendLine("Items purchased: " + stats.TotalItemsPurchased);
             summary.AppendLine();
             summary.AppendLine("SYMBOL EARNINGS");
-            AppendSymbolRunStats(summary, SymbolKind.Strawberry, "Strawberry");
-            AppendSymbolRunStats(summary, SymbolKind.Cherry, "Cherry");
-            AppendSymbolRunStats(summary, SymbolKind.Banana, "Banana");
-            AppendSymbolRunStats(summary, SymbolKind.Orange, "Orange");
-            AppendSymbolRunStats(summary, SymbolKind.Apple, "Apple");
-            AppendSymbolRunStats(summary, SymbolKind.Joker, "Triple Joker");
+            AppendSymbolRunStats(summary, SymbolKind.Absolut, "Absolut");
+            AppendSymbolRunStats(summary, SymbolKind.Dollar, "Dollar");
+            AppendSymbolRunStats(summary, SymbolKind.Cat, "Cat");
+            AppendSymbolRunStats(summary, SymbolKind.Cigarette, "Cigarette");
+            AppendSymbolRunStats(summary, SymbolKind.Kiss, "Kiss");
             return summary.ToString().TrimEnd();
         }
 
@@ -1654,7 +1714,7 @@ namespace SerenaysGambit
         private static string BuildMatchResultText(RewardAnimationEvent animationEvent)
         {
             var win = animationEvent.Win;
-            return "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")"
+            return "Scored: " + win.Payline.Name + " (" + (win.IsTripleKiss ? "Triple Kiss" : win.ResolvedSymbol.ToString()) + ")"
                 + " — hit " + (animationEvent.HitIndex + 1) + "/" + animationEvent.TotalHits;
         }
 
@@ -1715,30 +1775,30 @@ namespace SerenaysGambit
         private string BuildGambitMultiplierDetail(SpinResult result, PaylineWin win)
         {
             var parts = new List<string>();
-            if (win.IsTripleJoker)
+            if (win.IsTripleKiss)
             {
-                parts.Add("<color=#FFDD70>TRIPLE JOKER</color>");
+                parts.Add("<color=#FFDD70>TRIPLE KISS</color>");
             }
 
-            if (_state != null && _state.Modifiers.AppleDecayGambitCount > 0 && win.ResolvedSymbol == SymbolKind.Apple)
+            if (_state != null && _state.Modifiers.CigaretteDecayGambitCount > 0 && win.ResolvedSymbol == SymbolKind.Cigarette)
             {
-                var appleConfig = _state.Modifiers.GambitConfig(GambitKind.AppleDecay);
-                var applePayoutMultiplier = appleConfig == null ? 5 : appleConfig.PayoutMultiplier;
-                var appleMultiplier = BigInteger.Pow(new BigInteger(applePayoutMultiplier), _state.Modifiers.AppleDecayGambitCount);
-                parts.Add("<color=#FF8C69>APPLE ×" + appleMultiplier + "</color>");
+                var cigaretteConfig = _state.Modifiers.GambitConfig(GambitKind.CigaretteDecay);
+                var cigarettePayoutMultiplier = cigaretteConfig == null ? 5 : cigaretteConfig.PayoutMultiplier;
+                var cigaretteMultiplier = BigInteger.Pow(new BigInteger(cigarettePayoutMultiplier), _state.Modifiers.CigaretteDecayGambitCount);
+                parts.Add("<color=#FF8C69>CIGARETTE ×" + cigaretteMultiplier + "</color>");
             }
 
-            if (_state != null && _state.Modifiers.Joker1000xGambitCount > 0 && WinUsesLeftReelJoker(result, win))
+            if (_state != null && _state.Modifiers.Kiss1000xGambitCount > 0 && WinUsesLeftReelKiss(result, win))
             {
-                var jokerConfig = _state.Modifiers.GambitConfig(GambitKind.Joker1000x);
-                var jokerPayoutMultiplier = jokerConfig == null ? 1000 : jokerConfig.PayoutMultiplier;
-                var jokerMultiplier = BigInteger.Pow(new BigInteger(jokerPayoutMultiplier), _state.Modifiers.Joker1000xGambitCount);
-                parts.Add("<color=#D9A0FF>JOKER ×" + jokerMultiplier + "</color>");
+                var kissConfig = _state.Modifiers.GambitConfig(GambitKind.Kiss1000x);
+                var kissPayoutMultiplier = kissConfig == null ? 1000 : kissConfig.PayoutMultiplier;
+                var kissMultiplier = BigInteger.Pow(new BigInteger(kissPayoutMultiplier), _state.Modifiers.Kiss1000xGambitCount);
+                parts.Add("<color=#D9A0FF>KISS ×" + kissMultiplier + "</color>");
             }
 
-            if (_state != null && _state.Modifiers.StrawberryGambitCount > 0)
+            if (_state != null && _state.Modifiers.AbsolutGambitCount > 0)
             {
-                parts.Add("<color=#FF8FBA>STRAWBERRY GAMBIT</color>");
+                parts.Add("<color=#FF8FBA>ABSOLUT GAMBIT</color>");
             }
 
             var detail = new StringBuilder();
@@ -1753,7 +1813,7 @@ namespace SerenaysGambit
             return detail.ToString();
         }
 
-        private static bool WinUsesLeftReelJoker(SpinResult result, PaylineWin win)
+        private static bool WinUsesLeftReelKiss(SpinResult result, PaylineWin win)
         {
             if (result == null || result.Grid == null)
             {
@@ -1762,7 +1822,7 @@ namespace SerenaysGambit
 
             foreach (var position in win.Payline.Positions)
             {
-                if (position.Column == 0 && result.Grid[position.Row, position.Column] == SymbolKind.Joker)
+                if (position.Column == 0 && result.Grid[position.Row, position.Column] == SymbolKind.Kiss)
                 {
                     return true;
                 }
@@ -2105,12 +2165,11 @@ namespace SerenaysGambit
 
             switch (symbol)
             {
-                case SymbolKind.Strawberry: return "STRAWBERRY";
-                case SymbolKind.Cherry: return "CHERRY";
-                case SymbolKind.Banana: return "BANANA";
-                case SymbolKind.Orange: return "ORANGE";
-                case SymbolKind.Apple: return "APPLE";
-                default: return "JOKER";
+                case SymbolKind.Absolut: return "ABSOLUT";
+                case SymbolKind.Dollar: return "DOLLAR";
+                case SymbolKind.Cat: return "CAT";
+                case SymbolKind.Cigarette: return "CIGARETTE";
+                default: return "KISS";
             }
         }
 
@@ -2118,11 +2177,10 @@ namespace SerenaysGambit
         {
             switch (symbol)
             {
-                case SymbolKind.Strawberry: return new Color(0.95f, 0.84f, 0.84f, 1f);
-                case SymbolKind.Cherry: return new Color(0.88f, 0.88f, 0.88f, 1f);
-                case SymbolKind.Banana: return new Color(0.98f, 0.95f, 0.65f, 1f);
-                case SymbolKind.Orange: return new Color(0.98f, 0.80f, 0.60f, 1f);
-                case SymbolKind.Apple: return new Color(0.98f, 0.72f, 0.72f, 1f);
+                case SymbolKind.Absolut: return new Color(0.95f, 0.84f, 0.84f, 1f);
+                case SymbolKind.Dollar: return new Color(0.88f, 0.88f, 0.88f, 1f);
+                case SymbolKind.Cat: return new Color(0.98f, 0.80f, 0.60f, 1f);
+                case SymbolKind.Cigarette: return new Color(0.98f, 0.72f, 0.72f, 1f);
                 default: return new Color(0.96f, 0.92f, 0.72f, 1f);
             }
         }
@@ -2146,6 +2204,11 @@ namespace SerenaysGambit
         {
             var transform = RequireTransform(root, path);
             var component = transform.GetComponent<T>();
+            if (component == null)
+            {
+                component = transform.GetComponentInChildren<T>(true);
+            }
+
             if (component == null)
             {
                 throw new InvalidOperationException("Expected " + typeof(T).Name + " at GameCanvas/" + path + ".");
@@ -2191,6 +2254,189 @@ namespace SerenaysGambit
             }
 
             return transform;
+        }
+
+        private IEnumerator ShowThresholdCongratulations(SpinResult result)
+        {
+            if (_thresholdCongratulationsOverlay == null
+                || _thresholdCongratulationsText == null
+                || _celebrationAnimationSettings == null
+                || _state == null)
+            {
+                yield break;
+            }
+
+            var bankAmount = MoneyFormatter.FormatTL(_state.CashKurus);
+            var followUp = result != null && result.CarriedRollsToNextThreshold > 0
+                ? "\n<size=22><color=#74D7FF>+" + result.CarriedRollsToNextThreshold + " ROLLS CARRIED FORWARD</color></size>"
+                : _state.Phase == RunPhase.Victory
+                    ? "\n<size=22><color=#FFD166>ALL THRESHOLDS CLEARED</color></size>"
+                    : "\n<size=22><color=#74D7FF>NEXT THRESHOLD UNLOCKED</color></size>";
+            _thresholdCongratulationsText.text = "<size=44><color=#FFD166>CONGRATULATIONS!</color></size>\n"
+                + "<size=28>YOU PASSED THE THRESHOLD</size>\n"
+                + "<size=26>WITH <color=#FFA001>" + bankAmount + "</color> IN THE BANK</size>"
+                + followUp;
+
+            var panelTransform = _thresholdCongratulationsOverlay.transform.Find("Panel") as RectTransform;
+            if (panelTransform != null)
+            {
+                panelTransform.localScale = Vector3.one * _celebrationAnimationSettings.ThresholdInitialScale;
+            }
+
+            _thresholdCongratulationsOverlay.SetActive(true);
+
+            if (panelTransform != null)
+            {
+                var sequence = DOTween.Sequence(_thresholdCongratulationsOverlay);
+                sequence.Append(panelTransform.DOScale(
+                    Vector3.one * _celebrationAnimationSettings.ThresholdOvershootScale,
+                    _celebrationAnimationSettings.ThresholdScaleUpDuration).SetEase(Ease.OutBack));
+                sequence.Append(panelTransform.DOScale(
+                    Vector3.one,
+                    _celebrationAnimationSettings.ThresholdSettleDuration).SetEase(Ease.InOutSine));
+                sequence.Append(panelTransform.DOPunchScale(
+                    Vector3.one * _celebrationAnimationSettings.ThresholdPunchStrength,
+                    _celebrationAnimationSettings.ThresholdPunchDuration,
+                    _celebrationAnimationSettings.ThresholdPunchVibrato,
+                    _celebrationAnimationSettings.ThresholdPunchElasticity));
+                yield return sequence.WaitForCompletion();
+            }
+            else
+            {
+                yield return new WaitForSeconds(_celebrationAnimationSettings.ThresholdCongratulationsDuration);
+            }
+
+            _thresholdCongratulationsOverlay.SetActive(false);
+        }
+
+        private IEnumerator ShowMaxPlusWin(PaylineWin win)
+        {
+            if (_maxPlusWinOverlay == null || win == null || _celebrationAnimationSettings == null)
+            {
+                yield break;
+            }
+
+            if (_payoutText != null)
+            {
+                if (_winningItemNameText != null && (_winningItemNameText.font == null || _winningItemNameText.font == TMP_Settings.defaultFontAsset))
+                {
+                    _winningItemNameText.font = _payoutText.font;
+                    _winningItemNameText.fontSharedMaterial = _payoutText.fontSharedMaterial;
+                }
+                if (_maxPlusWinTitleText != null && (_maxPlusWinTitleText.font == null || _maxPlusWinTitleText.font == TMP_Settings.defaultFontAsset))
+                {
+                    _maxPlusWinTitleText.font = _payoutText.font;
+                    _maxPlusWinTitleText.fontSharedMaterial = _payoutText.fontSharedMaterial;
+                }
+            }
+
+            if (_winningItemImage != null)
+            {
+                var winningItemSprite = SymbolRotationImage(win.ResolvedSymbol);
+                _winningItemImage.sprite = winningItemSprite;
+                if (_winningItemAnimationPlayer != null)
+                {
+                    _winningItemAnimationPlayer.Configure(
+                        winningItemSprite,
+                        SymbolScoreAnimation(win.ResolvedSymbol));
+                }
+            }
+            if (_winningItemNameText != null)
+            {
+                _winningItemNameText.text = SymbolLabel(win.ResolvedSymbol);
+            }
+
+            var overlayImage = _maxPlusWinOverlay.GetComponent<Image>();
+            if (overlayImage != null)
+            {
+                var overlayColor = overlayImage.color;
+                overlayColor.a = _celebrationAnimationSettings.MaxPlusOverlayOpacity;
+                overlayImage.color = overlayColor;
+            }
+
+            _maxPlusWinOverlay.SetActive(true);
+
+            if (_winningItemAnimationPlayer != null)
+            {
+                _winningItemAnimationPlayer.PlayOneShot();
+            }
+
+            if (_winningItemRect != null)
+            {
+                _winningItemRect.localScale = Vector3.one * _celebrationAnimationSettings.MaxPlusItemInitialScale;
+            }
+            if (_maxPlusWinTitleRect != null)
+            {
+                _maxPlusWinTitleRect.localScale = Vector3.one * _celebrationAnimationSettings.MaxPlusTitleInitialScale;
+            }
+
+            var sequence = DOTween.Sequence(_maxPlusWinOverlay);
+            if (_winningItemRect != null)
+            {
+                sequence.Append(_winningItemRect.DOScale(
+                    Vector3.one * _celebrationAnimationSettings.MaxPlusItemOvershootScale,
+                    _celebrationAnimationSettings.MaxPlusItemScaleUpDuration).SetEase(Ease.OutBack));
+            }
+            if (_maxPlusWinTitleRect != null)
+            {
+                sequence.Join(_maxPlusWinTitleRect.DOScale(
+                    Vector3.one,
+                    _celebrationAnimationSettings.MaxPlusTitleScaleUpDuration).SetEase(Ease.OutBack));
+            }
+            var maxPlusPunchDuration = Mathf.Max(
+                0.01f,
+                _celebrationAnimationSettings.MaxPlusWinDuration
+                    - _celebrationAnimationSettings.MaxPlusItemScaleUpDuration
+                    - _celebrationAnimationSettings.MaxPlusItemSettleDuration);
+            if (_winningItemRect != null)
+            {
+                sequence.Append(_winningItemRect.DOScale(
+                    Vector3.one,
+                    _celebrationAnimationSettings.MaxPlusItemSettleDuration).SetEase(Ease.InOutSine));
+                sequence.Append(_winningItemRect.DOPunchScale(
+                    Vector3.one * _celebrationAnimationSettings.MaxPlusPunchStrength,
+                    maxPlusPunchDuration,
+                    _celebrationAnimationSettings.MaxPlusPunchVibrato,
+                    _celebrationAnimationSettings.MaxPlusPunchElasticity));
+            }
+            else
+            {
+                sequence.AppendInterval(maxPlusPunchDuration);
+            }
+
+            yield return sequence.WaitForCompletion();
+
+            _maxPlusWinOverlay.SetActive(false);
+        }
+
+        private Sprite SymbolRotationImage(SymbolKind symbol)
+        {
+            if (_symbolDefinitions != null)
+            {
+                foreach (var definition in _symbolDefinitions)
+                {
+                    if (definition != null && definition.Symbol == symbol)
+                    {
+                        return definition.RotationImage;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private AnimationClip SymbolScoreAnimation(SymbolKind symbol)
+        {
+            if (_symbolDefinitions != null)
+            {
+                foreach (var definition in _symbolDefinitions)
+                {
+                    if (definition != null && definition.Symbol == symbol)
+                    {
+                        return definition.ScoreAnimation;
+                    }
+                }
+            }
+            return null;
         }
     }
 }

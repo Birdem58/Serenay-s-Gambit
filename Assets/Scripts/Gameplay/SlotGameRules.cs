@@ -7,9 +7,9 @@ namespace SerenaysGambit
 {
     public enum SymbolKind
     {
-        Strawberry = 0,
+        Absolut = 0,
         Dollar = 1,
-        Orange = 3,
+        Cat = 3,
         Cigarette = 4,
         Kiss = 5
     }
@@ -32,7 +32,7 @@ namespace SerenaysGambit
 
     public enum GambitKind
     {
-        Strawberry,
+        Absolut,
         BatchTen,
         Kiss1000x,
         CigaretteDecay
@@ -55,9 +55,9 @@ namespace SerenaysGambit
 
     public enum ShopOfferKind
     {
-        StrawberryValue = 0,
+        AbsolutValue = 0,
         DollarValue = 1,
-        OrangeValue = 3,
+        CatValue = 3,
         CigaretteValue = 4,
         MoneyMultiplier = 5,
         FreeSpins = 6,
@@ -146,9 +146,9 @@ namespace SerenaysGambit
 
         public static readonly SymbolKind[][] InitialReels =
         {
-            new[] { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Cigarette, SymbolKind.Orange, SymbolKind.Kiss },
-            new[] { SymbolKind.Dollar, SymbolKind.Cigarette, SymbolKind.Orange, SymbolKind.Cigarette, SymbolKind.Kiss },
-            new[] { SymbolKind.Cigarette, SymbolKind.Orange, SymbolKind.Cigarette, SymbolKind.Strawberry, SymbolKind.Kiss }
+            new[] { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Cigarette, SymbolKind.Cat, SymbolKind.Kiss },
+            new[] { SymbolKind.Dollar, SymbolKind.Cigarette, SymbolKind.Cat, SymbolKind.Cigarette, SymbolKind.Kiss },
+            new[] { SymbolKind.Cigarette, SymbolKind.Cat, SymbolKind.Cigarette, SymbolKind.Absolut, SymbolKind.Kiss }
         };
 
         public static readonly IReadOnlyList<Payline> Paylines = new List<Payline>
@@ -242,7 +242,7 @@ namespace SerenaysGambit
 
         public GameRulesConfig(
             IEnumerable<SymbolKind[]> reelStrips,
-            int strawberryStartingValue,
+            int absolutStartingValue,
             int dollarStartingValue,
             int baseRolls,
             int organCount,
@@ -273,12 +273,12 @@ namespace SerenaysGambit
                 _reelStrips[index] = (SymbolKind[])_reelStrips[index].Clone();
             }
 
-            if (strawberryStartingValue < 1 || dollarStartingValue < 1 || baseRolls < 1 || organCount < 1 || thresholdCount < 1 || freeSpinBundle < 0)
+            if (absolutStartingValue < 1 || dollarStartingValue < 1 || baseRolls < 1 || organCount < 1 || thresholdCount < 1 || freeSpinBundle < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(baseRolls), "Runtime balance values must be positive, except free spins which may be zero.");
             }
 
-            StrawberryStartingValue = strawberryStartingValue;
+            AbsolutStartingValue = absolutStartingValue;
             DollarStartingValue = dollarStartingValue;
             BaseRolls = baseRolls;
             OrganCount = organCount;
@@ -305,9 +305,9 @@ namespace SerenaysGambit
                 }
             }
 
-            _startingValues[SymbolKind.Strawberry] = strawberryStartingValue;
+            _startingValues[SymbolKind.Absolut] = absolutStartingValue;
             _startingValues[SymbolKind.Dollar] = dollarStartingValue;
-            _startingValues[SymbolKind.Orange] = 15;
+            _startingValues[SymbolKind.Cat] = 15;
             _startingValues[SymbolKind.Cigarette] = 20;
             _startingValues[SymbolKind.Kiss] = 1;
 
@@ -322,7 +322,7 @@ namespace SerenaysGambit
 
         internal GameRulesConfig(
             IEnumerable<SymbolKind[]> reelStrips,
-            int strawberryStartingValue,
+            int absolutStartingValue,
             int dollarStartingValue,
             int baseRolls,
             int organCount,
@@ -338,7 +338,7 @@ namespace SerenaysGambit
             {
                 _reelStrips[index] = (SymbolKind[])_reelStrips[index].Clone();
             }
-            StrawberryStartingValue = strawberryStartingValue;
+            AbsolutStartingValue = absolutStartingValue;
             DollarStartingValue = dollarStartingValue;
             BaseRolls = baseRolls;
             OrganCount = organCount;
@@ -361,7 +361,7 @@ namespace SerenaysGambit
             return _startingValues.TryGetValue(symbol, out val) ? val : 0;
         }
 
-        public int StrawberryStartingValue { get; private set; }
+        public int AbsolutStartingValue { get; private set; }
         public int DollarStartingValue { get; private set; }
         public int BaseRolls { get; private set; }
         public int OrganCount { get; private set; }
@@ -442,7 +442,7 @@ namespace SerenaysGambit
         {
             return new GameRulesConfig(
                 _reelStrips,
-                StrawberryStartingValue,
+                AbsolutStartingValue,
                 DollarStartingValue,
                 BaseRolls,
                 OrganCount,
@@ -473,7 +473,7 @@ namespace SerenaysGambit
         {
             return new Dictionary<GambitKind, GambitItemConfig>
             {
-                { GambitKind.Strawberry, new GambitItemConfig(payoutMultiplier: 10, sacrificePercent: 25) },
+                { GambitKind.Absolut, new GambitItemConfig(payoutMultiplier: 10, sacrificePercent: 25) },
                 { GambitKind.BatchTen, new GambitItemConfig(rollMultiplier: 10) },
                 { GambitKind.Kiss1000x, new GambitItemConfig(payoutMultiplier: 1000, riskPercent: 15) },
                 { GambitKind.CigaretteDecay, new GambitItemConfig(payoutMultiplier: 5, decayPerMiss: 1) }
@@ -498,9 +498,9 @@ namespace SerenaysGambit
         public RunModifiers(GameRulesConfig config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            _symbolValues[SymbolKind.Strawberry] = config.GetStartingValue(SymbolKind.Strawberry);
+            _symbolValues[SymbolKind.Absolut] = config.GetStartingValue(SymbolKind.Absolut);
             _symbolValues[SymbolKind.Dollar] = config.GetStartingValue(SymbolKind.Dollar);
-            _symbolValues[SymbolKind.Orange] = config.GetStartingValue(SymbolKind.Orange);
+            _symbolValues[SymbolKind.Cat] = config.GetStartingValue(SymbolKind.Cat);
             _symbolValues[SymbolKind.Cigarette] = config.GetStartingValue(SymbolKind.Cigarette);
             _symbolValues[SymbolKind.Kiss] = config.GetStartingValue(SymbolKind.Kiss);
             MoneyMultiplier = BigInteger.One;
@@ -513,9 +513,9 @@ namespace SerenaysGambit
             }
         }
 
-        public int StrawberryValue { get { return SymbolValue(SymbolKind.Strawberry); } }
+        public int AbsolutValue { get { return SymbolValue(SymbolKind.Absolut); } }
         public int DollarValue { get { return SymbolValue(SymbolKind.Dollar); } }
-        public int OrangeValue { get { return SymbolValue(SymbolKind.Orange); } }
+        public int CatValue { get { return SymbolValue(SymbolKind.Cat); } }
         public int CigaretteValue { get { return SymbolValue(SymbolKind.Cigarette); } }
         public int KissValue { get { return SymbolValue(SymbolKind.Kiss); } }
         public BigInteger MoneyMultiplier { get; private set; }
@@ -526,10 +526,10 @@ namespace SerenaysGambit
         public int VerticalMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.Vertical); } }
         public int CrissCrossMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.CrissCross); } }
 
-        public int StrawberryGambitCount
+        public int AbsolutGambitCount
         {
-            get { return GambitCount(GambitKind.Strawberry); }
-            set { SetGambitCount(GambitKind.Strawberry, value); }
+            get { return GambitCount(GambitKind.Absolut); }
+            set { SetGambitCount(GambitKind.Absolut, value); }
         }
 
         public int BatchTenGambitCount
@@ -1186,46 +1186,46 @@ namespace SerenaysGambit
                 }
             }
 
-            if (modifiers.StrawberryGambitCount > 0)
+            if (modifiers.AbsolutGambitCount > 0)
             {
-                bool hasStrawberryWin = false;
+                bool hasAbsolutWin = false;
                 foreach (var win in wins)
                 {
-                    if (win.ResolvedSymbol == SymbolKind.Strawberry)
+                    if (win.ResolvedSymbol == SymbolKind.Absolut)
                     {
-                        hasStrawberryWin = true;
+                        hasAbsolutWin = true;
                         break;
                     }
                 }
 
-                if (hasStrawberryWin)
+                if (hasAbsolutWin)
                 {
-                    var strawberryPositions = new HashSet<GridPosition>();
+                    var absolutPositions = new HashSet<GridPosition>();
                     foreach (var win in wins)
                     {
-                        if (win.ResolvedSymbol == SymbolKind.Strawberry)
+                        if (win.ResolvedSymbol == SymbolKind.Absolut)
                         {
                             foreach (var pos in win.Payline.Positions)
                             {
-                                if (grid[pos.Row, pos.Column] == SymbolKind.Strawberry)
+                                if (grid[pos.Row, pos.Column] == SymbolKind.Absolut)
                                 {
-                                    strawberryPositions.Add(pos);
+                                    absolutPositions.Add(pos);
                                 }
                             }
                         }
                     }
 
-                    int count = strawberryPositions.Count;
+                    int count = absolutPositions.Count;
                     if (count > 0)
                     {
-                        var strawberryConfig = modifiers.GambitConfig(GambitKind.Strawberry);
-                        var strawberryPayoutMultiplier = strawberryConfig == null ? 10 : strawberryConfig.PayoutMultiplier;
-                        BigInteger strawberryMult = BigInteger.One;
-                        for (int i = 0; i < modifiers.StrawberryGambitCount; i++)
+                        var absolutConfig = modifiers.GambitConfig(GambitKind.Absolut);
+                        var absolutPayoutMultiplier = absolutConfig == null ? 10 : absolutConfig.PayoutMultiplier;
+                        BigInteger absolutMult = BigInteger.One;
+                        for (int i = 0; i < modifiers.AbsolutGambitCount; i++)
                         {
-                            strawberryMult *= (strawberryPayoutMultiplier * count);
+                            absolutMult *= (absolutPayoutMultiplier * count);
                         }
-                        overallMultiplier *= strawberryMult;
+                        overallMultiplier *= absolutMult;
                     }
                 }
                 else
@@ -1235,7 +1235,7 @@ namespace SerenaysGambit
                     {
                         for (int col = 0; col < GameBalance.GridColumns; col++)
                         {
-                            if (grid[row, col] == SymbolKind.Strawberry)
+                            if (grid[row, col] == SymbolKind.Absolut)
                             {
                                 count++;
                             }
@@ -1244,10 +1244,10 @@ namespace SerenaysGambit
 
                     if (count > 0)
                     {
-                        var strawberryConfig = modifiers.GambitConfig(GambitKind.Strawberry);
-                        var sacrificePercent = strawberryConfig == null ? 25 : strawberryConfig.SacrificePercent;
+                        var absolutConfig = modifiers.GambitConfig(GambitKind.Absolut);
+                        var sacrificePercent = absolutConfig == null ? 25 : absolutConfig.SacrificePercent;
                         double multiplier = 1.0;
-                        for (int i = 0; i < modifiers.StrawberryGambitCount; i++)
+                        for (int i = 0; i < modifiers.AbsolutGambitCount; i++)
                         {
                             multiplier *= Math.Max(0.0, 1.0 - (sacrificePercent / 100.0) * count);
                         }
@@ -1424,7 +1424,7 @@ namespace SerenaysGambit
                             int stripIdx = kissIndices[rIdx];
                             kissIndices.RemoveAt(rIdx);
 
-                            SymbolKind[] regularSymbols = { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Orange, SymbolKind.Cigarette };
+                            SymbolKind[] regularSymbols = { SymbolKind.Absolut, SymbolKind.Dollar, SymbolKind.Cat, SymbolKind.Cigarette };
                             SymbolKind replacement = regularSymbols[_random.Next(regularSymbols.Length)];
 
                             state.Config.ReplaceSymbolOnStrip(0, stripIdx, replacement);
@@ -1565,14 +1565,14 @@ namespace SerenaysGambit
 
             switch (offer.Kind)
             {
-                case ShopOfferKind.StrawberryValue:
-                    state.Modifiers.ImproveSymbol(SymbolKind.Strawberry, state.Config.FindShopItemConfig(offer.Kind, state.ThresholdLevel)?.SymbolImprovementDelta ?? 0);
+                case ShopOfferKind.AbsolutValue:
+                    state.Modifiers.ImproveSymbol(SymbolKind.Absolut, state.Config.FindShopItemConfig(offer.Kind, state.ThresholdLevel)?.SymbolImprovementDelta ?? 0);
                     break;
                 case ShopOfferKind.DollarValue:
                     state.Modifiers.ImproveSymbol(SymbolKind.Dollar, state.Config.FindShopItemConfig(offer.Kind, state.ThresholdLevel)?.SymbolImprovementDelta ?? 0);
                     break;
-                case ShopOfferKind.OrangeValue:
-                    state.Modifiers.ImproveSymbol(SymbolKind.Orange, state.Config.FindShopItemConfig(offer.Kind, state.ThresholdLevel)?.SymbolImprovementDelta ?? 0);
+                case ShopOfferKind.CatValue:
+                    state.Modifiers.ImproveSymbol(SymbolKind.Cat, state.Config.FindShopItemConfig(offer.Kind, state.ThresholdLevel)?.SymbolImprovementDelta ?? 0);
                     break;
                 case ShopOfferKind.CigaretteValue:
                     state.Modifiers.ImproveSymbol(SymbolKind.Cigarette, state.Config.FindShopItemConfig(offer.Kind, state.ThresholdLevel)?.SymbolImprovementDelta ?? 0);
@@ -1718,9 +1718,9 @@ namespace SerenaysGambit
         {
             var allCandidates = new List<ShopOfferKind>
             {
-                ShopOfferKind.StrawberryValue,
+                ShopOfferKind.AbsolutValue,
                 ShopOfferKind.DollarValue,
-                ShopOfferKind.OrangeValue,
+                ShopOfferKind.CatValue,
                 ShopOfferKind.CigaretteValue,
                 ShopOfferKind.KissValue,
                 ShopOfferKind.MoneyMultiplier,
@@ -1817,10 +1817,10 @@ namespace SerenaysGambit
 
             switch (kind)
             {
-                case ShopOfferKind.StrawberryValue:
-                    var strawDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
-                    title = "Strawberry Value +" + strawDelta + "x";
-                    description = "Permanently raises Strawberry line value.";
+                case ShopOfferKind.AbsolutValue:
+                    var absolutDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
+                    title = "Absolut Value +" + absolutDelta + "x";
+                    description = "Permanently raises Absolut line value.";
                     if (costDivisor <= 0) cost = target / 25;
                     break;
                 case ShopOfferKind.DollarValue:
@@ -1829,10 +1829,10 @@ namespace SerenaysGambit
                     description = "Permanently raises Dollar line value.";
                     if (costDivisor <= 0) cost = target / 16;
                     break;
-                case ShopOfferKind.OrangeValue:
-                    var orangeDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
-                    title = "Orange Value +" + orangeDelta + "x";
-                    description = "Permanently raises Orange line value.";
+                case ShopOfferKind.CatValue:
+                    var catDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
+                    title = "Cat Value +" + catDelta + "x";
+                    description = "Permanently raises Cat line value.";
                     if (costDivisor <= 0) cost = target / 10;
                     break;
                 case ShopOfferKind.CigaretteValue:

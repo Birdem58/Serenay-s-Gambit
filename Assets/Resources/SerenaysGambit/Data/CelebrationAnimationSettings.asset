@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u!tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 828f0b1e0b2e4663bf0eb9e694153de9, type: 3}
+  m_Name: CelebrationAnimationSettings
+  m_EditorClassIdentifier: 
+  _thresholdCongratulationsDuration: 3
+  _thresholdInitialScale: 0.78
+  _thresholdOvershootScale: 1.08
+  _thresholdScaleUpDuration: 0.42
+  _thresholdSettleDuration: 0.28
+  _thresholdPunchStrength: 0.12
+  _thresholdPunchDuration: 2.3
+  _thresholdPunchVibrato: 6
+  _thresholdPunchElasticity: 0.55
+  _maxPlusOverlayOpacity: 0.5
+  _maxPlusWinDuration: 3
+  _maxPlusItemInitialScale: 0.45
+  _maxPlusTitleInitialScale: 0.55
+  _maxPlusItemOvershootScale: 1.1
+  _maxPlusItemScaleUpDuration: 0.55
+  _maxPlusTitleScaleUpDuration: 0.45
+  _maxPlusItemSettleDuration: 0.25
+  _maxPlusPunchStrength: 0.14
+  _maxPlusPunchVibrato: 7
+  _maxPlusPunchElasticity: 0.65
