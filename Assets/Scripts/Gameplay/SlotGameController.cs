@@ -33,11 +33,14 @@ namespace SerenaysGambit
         private readonly Vector3[] _originalReelPositions = new Vector3[GameBalance.GridColumns];
         private readonly bool[] _hasOriginalReelPositions = new bool[GameBalance.GridColumns];
 
-        private const float FirstWinPulseDuration = 0.6f;
-        private const float MinimumWinPulseDuration = 0.025f;
-        private const int MaximumRewardPulseWaves = 25;
-        private const int MaximumCoinFlightsPerCellPerPulse = 12;
-        private const float RewardPulseSpeedIncrease = 0.08f;
+        [SerializeField] private RewardAnimationSettings _animationSettings;
+        private readonly List<GameObject> _coinPool = new List<GameObject>();
+
+        private float FirstWinPulseDuration => _animationSettings != null ? _animationSettings.FirstWinPulseDuration : 0.6f;
+        private float MinimumWinPulseDuration => _animationSettings != null ? _animationSettings.MinimumWinPulseDuration : 0.025f;
+        private int MaximumRewardPulseWaves => _animationSettings != null ? _animationSettings.MaximumRewardPulseWaves : 25;
+        private int MaximumCoinFlightsPerCellPerPulse => _animationSettings != null ? _animationSettings.MaximumCoinFlightsPerCellPerPulse : 12;
+        private float RewardPulseSpeedIncrease => _animationSettings != null ? _animationSettings.RewardPulseSpeedIncrease : 0.08f;
 
         private TextMeshProUGUI _cashText;
         private TextMeshProUGUI _targetText;
@@ -224,6 +227,15 @@ namespace SerenaysGambit
                     }
                 }
             }
+
+            foreach (var coin in _coinPool)
+            {
+                if (coin != null)
+                {
+                    Destroy(coin);
+                }
+            }
+            _coinPool.Clear();
         }
 
         private void StartNewRun()
@@ -995,14 +1007,14 @@ namespace SerenaysGambit
                     stepSequence.OnKill(delegate
                     {
                         RestorePaylineVisuals(cells);
-                        DestroySpawnedCoins(spawnedCoins);
+                        ReturnSpawnedCoins(spawnedCoins);
                     });
                     stepSequence.Play();
                     yield return stepSequence.WaitForCompletion();
 
                     // This also covers projects whose DOTween settings disable auto-kill.
                     RestorePaylineVisuals(cells);
-                    DestroySpawnedCoins(spawnedCoins);
+                    ReturnSpawnedCoins(spawnedCoins);
                 }
 
                 accumulatedPayout += winPayout;
@@ -1144,13 +1156,13 @@ namespace SerenaysGambit
             {
                 if (coin != null)
                 {
-                    Destroy(coin);
+                    ReturnCoin(coin);
                 }
             });
             return flight;
         }
 
-        private static float RewardPulseDuration(int winIndex, int pulseIndex, int pulseWaves)
+        private float RewardPulseDuration(int winIndex, int pulseIndex, int pulseWaves)
         {
             float winDuration = FirstWinPulseDuration / (1f + winIndex * 0.4f);
             float initialPulseDuration = pulseWaves > 1 ? winDuration / pulseWaves : winDuration;
@@ -1243,13 +1255,13 @@ namespace SerenaysGambit
             }
         }
 
-        private static void DestroySpawnedCoins(List<GameObject> spawnedCoins)
+        private void ReturnSpawnedCoins(List<GameObject> spawnedCoins)
         {
             for (int index = 0; index < spawnedCoins.Count; index++)
             {
                 if (spawnedCoins[index] != null)
                 {
-                    Destroy(spawnedCoins[index]);
+                    ReturnCoin(spawnedCoins[index]);
                 }
             }
         }
@@ -1272,27 +1284,56 @@ namespace SerenaysGambit
 
         private GameObject SpawnCoin(Vector3 spawnPosition, Transform parent)
         {
-            GameObject coin;
-            if (_coinPrefab != null)
+            GameObject coin = null;
+            for (int i = _coinPool.Count - 1; i >= 0; i--)
             {
-                coin = Instantiate(_coinPrefab, parent);
+                if (_coinPool[i] == null)
+                {
+                    _coinPool.RemoveAt(i);
+                    continue;
+                }
+                if (!_coinPool[i].activeSelf)
+                {
+                    coin = _coinPool[i];
+                    _coinPool.RemoveAt(i);
+                    break;
+                }
             }
-            else
+
+            if (coin == null)
             {
-                // Dynamic fallback UI image
-                coin = new GameObject("Coin", typeof(RectTransform), typeof(Image));
-                coin.transform.SetParent(parent, false);
-                var rect = coin.GetComponent<RectTransform>();
-                rect.sizeDelta = new Vector2(30f, 30f);
-                var image = coin.GetComponent<Image>();
-                image.color = new Color(1f, 0.85f, 0.2f, 1f); // Gold
-                
-                var outline = coin.AddComponent<Outline>();
-                outline.effectColor = Color.black;
-                outline.effectDistance = new Vector2(1.5f, 1.5f);
+                if (_coinPrefab != null)
+                {
+                    coin = Instantiate(_coinPrefab, parent);
+                }
+                else
+                {
+                    // Dynamic fallback UI image
+                    coin = new GameObject("Coin", typeof(RectTransform), typeof(Image));
+                    var rect = coin.GetComponent<RectTransform>();
+                    rect.sizeDelta = new Vector2(30f, 30f);
+                    var image = coin.GetComponent<Image>();
+                    image.color = new Color(1f, 0.85f, 0.2f, 1f); // Gold
+                    
+                    var outline = coin.AddComponent<Outline>();
+                    outline.effectColor = Color.black;
+                    outline.effectDistance = new Vector2(1.5f, 1.5f);
+                }
             }
+
+            coin.transform.SetParent(parent, false);
             coin.transform.position = spawnPosition;
+            coin.SetActive(true);
             return coin;
+        }
+
+        private void ReturnCoin(GameObject coin)
+        {
+            if (coin != null && coin.activeSelf)
+            {
+                coin.SetActive(false);
+                _coinPool.Add(coin);
+            }
         }
 
         private string SymbolLabel(SymbolKind symbol)

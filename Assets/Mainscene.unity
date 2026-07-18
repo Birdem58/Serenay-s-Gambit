@@ -6783,6 +6783,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0bf10e7789d37464bbe7376b076df2db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _animationSettings: {fileID: 11400000, guid: 8e51d9db27ab346a480e1a404c2186d1, type: 2}
   _coinPrefab: {fileID: 0}
   _ownedUpgradePrefab: {fileID: 8284629452447737699, guid: 1b8e8c88fd45b413abe8cab61b6cf591, type: 3}
 --- !u!4 &1666850883
