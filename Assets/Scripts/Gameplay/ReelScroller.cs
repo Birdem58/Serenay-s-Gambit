@@ -13,10 +13,12 @@ namespace SerenaysGambit
         private SymbolKind[] _strip;
         private Func<SymbolKind, string> _labelFunc;
         private Func<SymbolKind, Color> _colorFunc;
+        private Func<SymbolKind, Sprite> _spriteFunc;
 
         private RectTransform _container;
         private readonly List<Image> _cellImages = new List<Image>();
         private readonly List<TextMeshProUGUI> _cellTexts = new List<TextMeshProUGUI>();
+        private readonly List<Image> _symbolIcons = new List<Image>();
 
         private float _offset;
         private float _currentScrollY;
@@ -51,12 +53,14 @@ namespace SerenaysGambit
             int column,
             SymbolKind[] strip,
             Func<SymbolKind, string> labelFunc,
-            Func<SymbolKind, Color> colorFunc)
+            Func<SymbolKind, Color> colorFunc,
+            Func<SymbolKind, Sprite> spriteFunc)
         {
             _column = column;
             _strip = (SymbolKind[])strip.Clone();
             _labelFunc = labelFunc;
             _colorFunc = colorFunc;
+            _spriteFunc = spriteFunc;
 
             // 1. Find existing 3 cells first
             var originalCells = new List<RectTransform>();
@@ -142,6 +146,27 @@ namespace SerenaysGambit
 
                 _cellImages.Add(image);
                 _cellTexts.Add(text);
+
+                // Add or find SymbolImage component for custom sprites
+                var iconTrans = cell.Find("SymbolImage");
+                Image iconImg = null;
+                if (iconTrans == null)
+                {
+                    var iconObj = new GameObject("SymbolImage", typeof(RectTransform));
+                    iconObj.transform.SetParent(cell, false);
+                    var rect = iconObj.GetComponent<RectTransform>();
+                    rect.anchorMin = new Vector2(0f, 0f);
+                    rect.anchorMax = new Vector2(1f, 1f);
+                    rect.offsetMin = new Vector2(15f, 15f);
+                    rect.offsetMax = new Vector2(-15f, -15f);
+                    iconImg = iconObj.AddComponent<Image>();
+                    iconImg.preserveAspect = true;
+                }
+                else
+                {
+                    iconImg = iconTrans.GetComponent<Image>();
+                }
+                _symbolIcons.Add(iconImg);
             }
 
             ResetToStart();
@@ -167,8 +192,13 @@ namespace SerenaysGambit
 
             for (int i = 0; i < _cellTexts.Count; i++)
             {
-                if (_cellTexts[i] != null) _cellTexts[i].text = "?";
+                if (_cellTexts[i] != null)
+                {
+                    _cellTexts[i].text = "?";
+                    _cellTexts[i].gameObject.SetActive(true);
+                }
                 if (_cellImages[i] != null) _cellImages[i].color = new Color(0.88f, 0.88f, 0.88f, 1f);
+                if (i < _symbolIcons.Count && _symbolIcons[i] != null) _symbolIcons[i].gameObject.SetActive(false);
             }
         }
 
@@ -185,10 +215,30 @@ namespace SerenaysGambit
             for (int i = 0; i < _cellTexts.Count; i++)
             {
                 var symbol = _strip[i % _strip.Length];
-                if (_cellTexts[i] != null && _labelFunc != null)
+                var sprite = _spriteFunc?.Invoke(symbol);
+
+                if (sprite != null)
                 {
-                    _cellTexts[i].text = _labelFunc(symbol);
+                    if (_cellTexts[i] != null) _cellTexts[i].gameObject.SetActive(false);
+                    if (i < _symbolIcons.Count && _symbolIcons[i] != null)
+                    {
+                        _symbolIcons[i].sprite = sprite;
+                        _symbolIcons[i].gameObject.SetActive(true);
+                    }
                 }
+                else
+                {
+                    if (_cellTexts[i] != null)
+                    {
+                        _cellTexts[i].text = _labelFunc != null ? _labelFunc(symbol) : symbol.ToString();
+                        _cellTexts[i].gameObject.SetActive(true);
+                    }
+                    if (i < _symbolIcons.Count && _symbolIcons[i] != null)
+                    {
+                        _symbolIcons[i].gameObject.SetActive(false);
+                    }
+                }
+
                 if (_cellImages[i] != null && _colorFunc != null)
                 {
                     _cellImages[i].color = _colorFunc(symbol);

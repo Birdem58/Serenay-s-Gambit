@@ -132,7 +132,7 @@ namespace SerenaysGambit
                     if (reelTransform != null)
                     {
                         var scroller = reelTransform.gameObject.AddComponent<ReelScroller>();
-                        scroller.Initialize(column, _rulesConfig.ReelStripAt(column), SymbolLabel, SymbolColor);
+                        scroller.Initialize(column, _rulesConfig.ReelStripAt(column), SymbolLabel, SymbolColor, SymbolSprite);
                         _reelScrollers[column] = scroller;
                     }
                 }
@@ -1697,6 +1697,21 @@ namespace SerenaysGambit
                 coin.SetActive(false);
                 _coinPool.Add(coin);
             }
+        }
+
+        private Sprite SymbolSprite(SymbolKind symbol)
+        {
+            if (_symbolDefinitions != null)
+            {
+                foreach (var definition in _symbolDefinitions)
+                {
+                    if (definition != null && definition.Symbol == symbol)
+                    {
+                        return definition.Icon;
+                    }
+                }
+            }
+            return null;
         }
 
         private string SymbolLabel(SymbolKind symbol)

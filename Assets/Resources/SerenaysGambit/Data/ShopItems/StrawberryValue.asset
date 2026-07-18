@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 0
   _displayName: Strawberry Value +1x
   _description: Permanently raises Strawberry line value.
+  _symbolImprovementDelta: 1
+  _baseRollMultiplierValue: 0
+  _costDivisor: 25

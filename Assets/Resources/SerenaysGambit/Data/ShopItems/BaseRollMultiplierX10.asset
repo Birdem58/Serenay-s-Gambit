@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 8
   _displayName: Base Rolls x10
   _description: Raises the ten-roll base to one hundred for this run.
+  _symbolImprovementDelta: 0
+  _baseRollMultiplierValue: 10
+  _costDivisor: 2

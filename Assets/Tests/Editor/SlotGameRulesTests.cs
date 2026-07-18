@@ -431,10 +431,10 @@ namespace SerenaysGambit.Tests
         [Test]
         public void AuthoredShopCopyIsUsedForGeneratedOffers()
         {
-            var texts = new Dictionary<ShopOfferKind, ShopItemText>();
+            var configs = new Dictionary<ShopOfferKind, ShopItemConfig>();
             foreach (ShopOfferKind kind in System.Enum.GetValues(typeof(ShopOfferKind)))
             {
-                texts.Add(kind, new ShopItemText("Authored " + kind, "Description " + kind));
+                configs.Add(kind, new ShopItemConfig("Authored " + kind, "Description " + kind));
             }
 
             var config = new GameRulesConfig(
@@ -445,7 +445,7 @@ namespace SerenaysGambit.Tests
                 GameBalance.OrganCount,
                 GameBalance.MaxThresholdLevel,
                 GameBalance.FreeSpinBundle,
-                texts);
+                configs);
             var state = new SlotGameEngine(31, config).CreateNewRun();
             ShopOffer authoredOffer = null;
             foreach (var offer in state.ShopOffers)
@@ -739,6 +739,44 @@ namespace SerenaysGambit.Tests
                 { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
                 { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker }
             };
+        }
+
+        [Test]
+        public void CustomizableShopItemConfigurationsAreRespected()
+        {
+            var configs = new Dictionary<ShopOfferKind, ShopItemConfig>
+            {
+                { ShopOfferKind.StrawberryValue, new ShopItemConfig("Strawberry Boost", "Add +5 value", symbolImprovementDelta: 5, costDivisor: 50) },
+                { ShopOfferKind.BaseRollMultiplierX2, new ShopItemConfig("Roll Double", "Roll mult 4", baseRollMultiplierValue: 4, costDivisor: 5) }
+            };
+
+            var config = new GameRulesConfig(
+                GameBalance.InitialReels,
+                1,
+                5,
+                GameBalance.BaseRolls,
+                GameBalance.OrganCount,
+                GameBalance.MaxThresholdLevel,
+                GameBalance.FreeSpinBundle,
+                configs);
+
+            var engine = new SlotGameEngine(42, config);
+            var state = engine.CreateNewRun();
+
+            // Clear shop and manually add the offers we want to test
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, state.CurrentTargetKurus / 50, "Strawberry Boost", "Add +5 value"));
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.BaseRollMultiplierX2, state.CurrentTargetKurus / 5, "Roll Double", "Roll mult 4"));
+
+            // 1. Purchase strawberry boost and check that delta is 5 instead of default 1
+            state.CashKurus = state.CurrentTargetKurus;
+            var initialStrawberryValue = state.Modifiers.SymbolValue(SymbolKind.Strawberry);
+            Assert.That(engine.TryPurchase(state, 0, out _), Is.True);
+            Assert.That(state.Modifiers.SymbolValue(SymbolKind.Strawberry), Is.EqualTo(initialStrawberryValue + 5));
+
+            // 2. Purchase base roll multiplier and check that multiplier is 4 instead of default 2
+            Assert.That(engine.TryPurchase(state, 1, out _), Is.True);
+            Assert.That(state.Modifiers.BaseRollMultiplier, Is.EqualTo(4));
         }
     }
 }

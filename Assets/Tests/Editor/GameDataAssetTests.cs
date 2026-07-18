@@ -52,8 +52,8 @@ namespace SerenaysGambit.Tests
             Assert.That(config.OrganCount, Is.EqualTo(balance.OrganCount));
             Assert.That(config.ThresholdCount, Is.EqualTo(balance.ThresholdCount));
             Assert.That(config.FreeSpinBundle, Is.EqualTo(balance.FreeSpinBundle));
-            Assert.That(config.FindShopItemText(ShopOfferKind.MoneyMultiplier).DisplayName, Is.EqualTo(moneyMultiplier.DisplayName));
-            Assert.That(config.FindShopItemText(ShopOfferKind.MoneyMultiplier).Description, Is.EqualTo(moneyMultiplier.Description));
+            Assert.That(config.FindShopItemConfig(ShopOfferKind.MoneyMultiplier).DisplayName, Is.EqualTo(moneyMultiplier.DisplayName));
+            Assert.That(config.FindShopItemConfig(ShopOfferKind.MoneyMultiplier).Description, Is.EqualTo(moneyMultiplier.Description));
         }
 
         [Test]

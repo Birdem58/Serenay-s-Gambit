@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 1
   _displayName: Cherry Value +1x
   _description: Permanently raises Cherry line value.
+  _symbolImprovementDelta: 1
+  _baseRollMultiplierValue: 0
+  _costDivisor: 16

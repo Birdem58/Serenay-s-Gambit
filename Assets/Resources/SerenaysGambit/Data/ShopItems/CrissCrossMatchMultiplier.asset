@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 12
   _displayName: Criss-Cross Match Echo
   _description: Counts criss-cross matches repeatedly and speeds up every reward burst.
+  _symbolImprovementDelta: 0
+  _baseRollMultiplierValue: 0
+  _costDivisor: 0

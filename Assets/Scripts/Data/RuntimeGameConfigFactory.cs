@@ -14,7 +14,7 @@ namespace SerenaysGambit
             BalanceDefinition balance)
         {
             var defaults = GameRulesConfig.CreateDefault();
-            var shopTexts = CreateShopTexts(shopItems);
+            var shopConfigs = CreateShopConfigs(shopItems);
 
             var customStartingValues = new Dictionary<SymbolKind, int>();
             if (symbols != null)
@@ -36,7 +36,7 @@ namespace SerenaysGambit
                 PositiveOrDefault(balance == null ? 0 : balance.OrganCount, defaults.OrganCount),
                 PositiveOrDefault(balance == null ? 0 : balance.ThresholdCount, defaults.ThresholdCount),
                 NonNegativeOrDefault(balance == null ? -1 : balance.FreeSpinBundle, defaults.FreeSpinBundle),
-                shopTexts,
+                shopConfigs,
                 customStartingValues);
         }
 
@@ -101,12 +101,12 @@ namespace SerenaysGambit
             return fallback;
         }
 
-        private static Dictionary<ShopOfferKind, ShopItemText> CreateShopTexts(ShopItemDefinition[] definitions)
+        private static Dictionary<ShopOfferKind, ShopItemConfig> CreateShopConfigs(ShopItemDefinition[] definitions)
         {
-            var texts = new Dictionary<ShopOfferKind, ShopItemText>();
+            var configs = new Dictionary<ShopOfferKind, ShopItemConfig>();
             if (definitions == null)
             {
-                return texts;
+                return configs;
             }
 
             foreach (var definition in definitions)
@@ -116,10 +116,15 @@ namespace SerenaysGambit
                     continue;
                 }
 
-                texts[definition.Kind] = new ShopItemText(definition.DisplayName, definition.Description);
+                configs[definition.Kind] = new ShopItemConfig(
+                    definition.DisplayName, 
+                    definition.Description,
+                    definition.SymbolImprovementDelta,
+                    definition.BaseRollMultiplierValue,
+                    definition.CostDivisor);
             }
 
-            return texts;
+            return configs;
         }
 
         private static int PositiveOrDefault(int value, int fallback)

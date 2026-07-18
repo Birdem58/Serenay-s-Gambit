@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 6
   _displayName: +20 Free Spins
   _description: Adds rolls until this threshold is cleared.
+  _symbolImprovementDelta: 0
+  _baseRollMultiplierValue: 0
+  _costDivisor: 20

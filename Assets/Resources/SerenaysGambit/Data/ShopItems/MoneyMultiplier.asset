@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 5
   _displayName: Money Output x2
   _description: Doubles all future final TL payouts.
+  _symbolImprovementDelta: 0
+  _baseRollMultiplierValue: 0
+  _costDivisor: 10

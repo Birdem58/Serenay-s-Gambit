@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 3
   _displayName: Orange Value +1x
   _description: Permanently raises Orange line value.
+  _symbolImprovementDelta: 1
+  _baseRollMultiplierValue: 0
+  _costDivisor: 10

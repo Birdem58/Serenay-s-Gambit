@@ -165,16 +165,22 @@ namespace SerenaysGambit
         }
     }
 
-    public sealed class ShopItemText
+    public sealed class ShopItemConfig
     {
-        public ShopItemText(string displayName, string description)
+        public ShopItemConfig(string displayName, string description, int symbolImprovementDelta = 0, int baseRollMultiplierValue = 0, int costDivisor = 0)
         {
             DisplayName = displayName ?? string.Empty;
             Description = description ?? string.Empty;
+            SymbolImprovementDelta = symbolImprovementDelta;
+            BaseRollMultiplierValue = baseRollMultiplierValue;
+            CostDivisor = costDivisor;
         }
 
         public string DisplayName { get; private set; }
         public string Description { get; private set; }
+        public int SymbolImprovementDelta { get; private set; }
+        public int BaseRollMultiplierValue { get; private set; }
+        public int CostDivisor { get; private set; }
     }
 
     // A Unity-free snapshot of authored content. Unity ScriptableObjects are converted to this
@@ -182,7 +188,7 @@ namespace SerenaysGambit
     public sealed class GameRulesConfig
     {
         private readonly SymbolKind[][] _reelStrips;
-        private readonly Dictionary<ShopOfferKind, ShopItemText> _shopItemTexts;
+        private readonly Dictionary<ShopOfferKind, ShopItemConfig> _shopItemConfigs;
 
         private readonly Dictionary<SymbolKind, int> _startingValues = new Dictionary<SymbolKind, int>();
 
@@ -194,7 +200,7 @@ namespace SerenaysGambit
             int organCount,
             int thresholdCount,
             int freeSpinBundle,
-            IDictionary<ShopOfferKind, ShopItemText> shopItemTexts = null,
+            IDictionary<ShopOfferKind, ShopItemConfig> shopItemConfigs = null,
             IDictionary<SymbolKind, int> customStartingValues = null)
         {
             if (reelStrips == null)
@@ -229,9 +235,9 @@ namespace SerenaysGambit
             OrganCount = organCount;
             ThresholdCount = thresholdCount;
             FreeSpinBundle = freeSpinBundle;
-            _shopItemTexts = shopItemTexts == null
-                ? new Dictionary<ShopOfferKind, ShopItemText>()
-                : new Dictionary<ShopOfferKind, ShopItemText>(shopItemTexts);
+            _shopItemConfigs = shopItemConfigs == null
+                ? new Dictionary<ShopOfferKind, ShopItemConfig>()
+                : new Dictionary<ShopOfferKind, ShopItemConfig>(shopItemConfigs);
 
             _startingValues[SymbolKind.Strawberry] = strawberryStartingValue;
             _startingValues[SymbolKind.Cherry] = cherryStartingValue;
@@ -290,10 +296,10 @@ namespace SerenaysGambit
             return BigInteger.Pow(new BigInteger(100), level) * 100;
         }
 
-        public ShopItemText FindShopItemText(ShopOfferKind kind)
+        public ShopItemConfig FindShopItemConfig(ShopOfferKind kind)
         {
-            ShopItemText text;
-            return _shopItemTexts.TryGetValue(kind, out text) ? text : null;
+            ShopItemConfig config;
+            return _shopItemConfigs.TryGetValue(kind, out config) ? config : null;
         }
 
         public static GameRulesConfig CreateDefault()
@@ -415,11 +421,11 @@ namespace SerenaysGambit
             return _symbolValues.TryGetValue(symbol, out val) ? val : 0;
         }
 
-        public void ImproveSymbol(SymbolKind symbol)
+        public void ImproveSymbol(SymbolKind symbol, int delta = 0)
         {
             if (_symbolValues.ContainsKey(symbol))
             {
-                _symbolValues[symbol]++;
+                _symbolValues[symbol] += delta > 0 ? delta : 1;
             }
         }
 
@@ -1258,19 +1264,19 @@ namespace SerenaysGambit
             switch (offer.Kind)
             {
                 case ShopOfferKind.StrawberryValue:
-                    state.Modifiers.ImproveSymbol(SymbolKind.Strawberry);
+                    state.Modifiers.ImproveSymbol(SymbolKind.Strawberry, state.Config.FindShopItemConfig(offer.Kind)?.SymbolImprovementDelta ?? 0);
                     break;
                 case ShopOfferKind.CherryValue:
-                    state.Modifiers.ImproveSymbol(SymbolKind.Cherry);
+                    state.Modifiers.ImproveSymbol(SymbolKind.Cherry, state.Config.FindShopItemConfig(offer.Kind)?.SymbolImprovementDelta ?? 0);
                     break;
                 case ShopOfferKind.BananaValue:
-                    state.Modifiers.ImproveSymbol(SymbolKind.Banana);
+                    state.Modifiers.ImproveSymbol(SymbolKind.Banana, state.Config.FindShopItemConfig(offer.Kind)?.SymbolImprovementDelta ?? 0);
                     break;
                 case ShopOfferKind.OrangeValue:
-                    state.Modifiers.ImproveSymbol(SymbolKind.Orange);
+                    state.Modifiers.ImproveSymbol(SymbolKind.Orange, state.Config.FindShopItemConfig(offer.Kind)?.SymbolImprovementDelta ?? 0);
                     break;
                 case ShopOfferKind.AppleValue:
-                    state.Modifiers.ImproveSymbol(SymbolKind.Apple);
+                    state.Modifiers.ImproveSymbol(SymbolKind.Apple, state.Config.FindShopItemConfig(offer.Kind)?.SymbolImprovementDelta ?? 0);
                     break;
                 case ShopOfferKind.MoneyMultiplier:
                     state.Modifiers.DoubleMoneyMultiplier();
@@ -1280,12 +1286,18 @@ namespace SerenaysGambit
                     state.RollsRemaining += state.Config.FreeSpinBundle;
                     break;
                 case ShopOfferKind.BaseRollMultiplierX2:
-                    state.Modifiers.SetBaseRollMultiplier(2);
-                    state.RollsRemaining += state.Modifiers.StartingRolls - rollsBeforeUpgrade;
+                    {
+                        var mult = state.Config.FindShopItemConfig(offer.Kind)?.BaseRollMultiplierValue ?? 0;
+                        state.Modifiers.SetBaseRollMultiplier(mult > 0 ? mult : 2);
+                        state.RollsRemaining += state.Modifiers.StartingRolls - rollsBeforeUpgrade;
+                    }
                     break;
                 case ShopOfferKind.BaseRollMultiplierX10:
-                    state.Modifiers.SetBaseRollMultiplier(10);
-                    state.RollsRemaining += state.Modifiers.StartingRolls - rollsBeforeUpgrade;
+                    {
+                        var mult = state.Config.FindShopItemConfig(offer.Kind)?.BaseRollMultiplierValue ?? 0;
+                        state.Modifiers.SetBaseRollMultiplier(mult > 0 ? mult : 10);
+                        state.RollsRemaining += state.Modifiers.StartingRolls - rollsBeforeUpgrade;
+                    }
                     break;
                 case ShopOfferKind.BaseOutputMultiplier:
                     state.Modifiers.IncreaseBaseOutputMultiplier();
@@ -1438,7 +1450,10 @@ namespace SerenaysGambit
         private ShopOffer CreateOffer(RunState state, ShopOfferKind kind)
         {
             var target = state.CurrentTargetKurus;
-            var cost = target / 20;
+            var authoredConfig = state.Config.FindShopItemConfig(kind);
+            var costDivisor = authoredConfig != null ? authoredConfig.CostDivisor : 0;
+            var cost = costDivisor > 0 ? target / costDivisor : target / 20;
+
             string title;
             string description;
             PaylineGroup matchGroup;
@@ -1450,49 +1465,56 @@ namespace SerenaysGambit
             switch (kind)
             {
                 case ShopOfferKind.StrawberryValue:
-                    title = "Strawberry Value +1x";
+                    var strawDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
+                    title = "Strawberry Value +" + strawDelta + "x";
                     description = "Permanently raises Strawberry line value.";
-                    cost = target / 25;
+                    if (costDivisor <= 0) cost = target / 25;
                     break;
                 case ShopOfferKind.CherryValue:
-                    title = "Cherry Value +1x";
+                    var cherryDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
+                    title = "Cherry Value +" + cherryDelta + "x";
                     description = "Permanently raises Cherry line value.";
-                    cost = target / 16;
+                    if (costDivisor <= 0) cost = target / 16;
                     break;
                 case ShopOfferKind.BananaValue:
-                    title = "Banana Value +1x";
+                    var bananaDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
+                    title = "Banana Value +" + bananaDelta + "x";
                     description = "Permanently raises Banana line value.";
-                    cost = target / 12;
+                    if (costDivisor <= 0) cost = target / 12;
                     break;
                 case ShopOfferKind.OrangeValue:
-                    title = "Orange Value +1x";
+                    var orangeDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
+                    title = "Orange Value +" + orangeDelta + "x";
                     description = "Permanently raises Orange line value.";
-                    cost = target / 10;
+                    if (costDivisor <= 0) cost = target / 10;
                     break;
                 case ShopOfferKind.AppleValue:
-                    title = "Apple Value +1x";
+                    var appleDelta = authoredConfig != null && authoredConfig.SymbolImprovementDelta > 0 ? authoredConfig.SymbolImprovementDelta : 1;
+                    title = "Apple Value +" + appleDelta + "x";
                     description = "Permanently raises Apple line value.";
-                    cost = target / 8;
+                    if (costDivisor <= 0) cost = target / 8;
                     break;
                 case ShopOfferKind.MoneyMultiplier:
                     title = "Money Output x2";
                     description = "Doubles all future final TL payouts.";
-                    cost = target / 10;
+                    if (costDivisor <= 0) cost = target / 10;
                     break;
                 case ShopOfferKind.FreeSpins:
                     title = "+20 Free Spins";
                     description = "Adds rolls until this threshold is cleared.";
-                    cost = target / 20;
+                    if (costDivisor <= 0) cost = target / 20;
                     break;
                 case ShopOfferKind.BaseRollMultiplierX2:
-                    title = "Base Rolls x2";
-                    description = "Raises the ten-roll base to twenty for this run.";
-                    cost = target / 5;
+                    var rollMult2 = authoredConfig != null && authoredConfig.BaseRollMultiplierValue > 0 ? authoredConfig.BaseRollMultiplierValue : 2;
+                    title = "Base Rolls x" + rollMult2;
+                    description = "Raises the ten-roll base to " + (10 * rollMult2) + " for this run.";
+                    if (costDivisor <= 0) cost = target / 5;
                     break;
                 case ShopOfferKind.BaseRollMultiplierX10:
-                    title = "Base Rolls x10";
-                    description = "Raises the ten-roll base to one hundred for this run.";
-                    cost = target / 2;
+                    var rollMult10 = authoredConfig != null && authoredConfig.BaseRollMultiplierValue > 0 ? authoredConfig.BaseRollMultiplierValue : 10;
+                    title = "Base Rolls x" + rollMult10;
+                    description = "Raises the ten-roll base to " + (10 * rollMult10) + " for this run.";
+                    if (costDivisor <= 0) cost = target / 2;
                     break;
                 case ShopOfferKind.BaseOutputMultiplier:
                     {
@@ -1500,7 +1522,7 @@ namespace SerenaysGambit
                         var nextMultiplier = RunModifiers.BaseOutputMultiplierForIndex(nextIndex);
                         title = "Output Mult. x" + nextMultiplier;
                         description = "Multiplies all payouts by " + nextMultiplier + " for this run.";
-                        cost = (target / 20) * nextIndex;
+                        if (costDivisor <= 0) cost = (target / 20) * nextIndex;
                     }
                     break;
                 case ShopOfferKind.HorizontalMatchMultiplier:
@@ -1509,7 +1531,7 @@ namespace SerenaysGambit
                     title = PaylineGroupDisplayName(matchGroup) + " Match Echo x" + nextMatchCountMultiplier;
                     description = "Counts every " + PaylineGroupDisplayName(matchGroup).ToLowerInvariant()
                         + " match x" + nextMatchCountMultiplier + ". Reward pulses echo at the same count and accelerate for bigger bursts.";
-                    cost = MatchCountUpgradeCost(target, nextMatchCountMultiplier);
+                    if (costDivisor <= 0) cost = MatchCountUpgradeCost(target, nextMatchCountMultiplier);
                     break;
                 default:
                     title = "Unknown Offer";
@@ -1522,7 +1544,7 @@ namespace SerenaysGambit
                 cost = 100;
             }
 
-            var authoredText = state.Config.FindShopItemText(kind);
+            var authoredText = state.Config.FindShopItemConfig(kind);
             if (authoredText != null)
             {
                 if (!string.IsNullOrEmpty(authoredText.DisplayName))

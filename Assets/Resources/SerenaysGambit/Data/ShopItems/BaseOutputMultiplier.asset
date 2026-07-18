@@ -15,3 +15,6 @@ MonoBehaviour:
   _kind: 9
   _displayName: Output Multiplier
   _description: Multiplies all payouts for this run.
+  _symbolImprovementDelta: 0
+  _baseRollMultiplierValue: 0
+  _costDivisor: 20
