@@ -108,6 +108,57 @@ namespace SerenaysGambit.Tests
             Assert.That(batch.PayoutKurus, Is.EqualTo(single.PayoutKurus * 5));
         }
 
+        [TestCase(PaylineGroup.Horizontal)]
+        [TestCase(PaylineGroup.Vertical)]
+        [TestCase(PaylineGroup.CrissCross)]
+        public void DirectionalMatchUpgradesProgressThroughEveryTierAndOnlyBoostTheirOwnLines(PaylineGroup group)
+        {
+            var grid = CreateWinningGridFor(group);
+            var modifiers = new RunModifiers();
+            var baseline = SlotScoring.Evaluate(grid, modifiers, 1);
+            var expectedTiers = new[] { 2, 5, 10, 100 };
+
+            Assert.That(baseline.Wins.Count, Is.GreaterThan(0));
+            foreach (var win in baseline.Wins)
+            {
+                Assert.That(win.Payline.Group, Is.EqualTo(group));
+                Assert.That(win.MatchCountMultiplier, Is.EqualTo(1));
+            }
+
+            foreach (var expectedTier in expectedTiers)
+            {
+                Assert.That(modifiers.IncreaseMatchCountMultiplier(group), Is.True);
+                var boosted = SlotScoring.Evaluate(grid, modifiers, 1);
+
+                Assert.That(modifiers.MatchCountMultiplier(group), Is.EqualTo(expectedTier));
+                Assert.That(boosted.PayoutKurus, Is.EqualTo(baseline.PayoutKurus * expectedTier));
+                foreach (var win in boosted.Wins)
+                {
+                    Assert.That(win.Payline.Group, Is.EqualTo(group));
+                    Assert.That(win.MatchCountMultiplier, Is.EqualTo(expectedTier));
+                    Assert.That(boosted.RewardAnimationCount(win), Is.EqualTo(expectedTier));
+                }
+            }
+
+            Assert.That(modifiers.IncreaseMatchCountMultiplier(group), Is.False);
+        }
+
+        [Test]
+        public void MatchCountUpgradeAddsTheSameNumberOfRewardAnimationsAsItsMultiplier()
+        {
+            var modifiers = new RunModifiers();
+            Assert.That(modifiers.IncreaseMatchCountMultiplier(PaylineGroup.Horizontal), Is.True); // x2
+            Assert.That(modifiers.IncreaseMatchCountMultiplier(PaylineGroup.Horizontal), Is.True); // x5
+
+            var score = SlotScoring.Evaluate(CreateWinningGridFor(PaylineGroup.Horizontal), modifiers, 5);
+
+            foreach (var win in score.Wins)
+            {
+                Assert.That(win.MatchCountMultiplier, Is.EqualTo(5));
+                Assert.That(score.RewardAnimationCount(win), Is.EqualTo(25));
+            }
+        }
+
         [Test]
         public void MoneyMultiplierAppliesAfterLineAndComboCalculation()
         {
@@ -313,6 +364,25 @@ namespace SerenaysGambit.Tests
             Assert.That(engine.TrySettleThreshold(state), Is.True);
             Assert.That(state.Modifiers.MoneyMultiplier, Is.EqualTo(new BigInteger(2)));
             Assert.That(state.ThresholdLevel, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void PurchasingDirectionalMatchOffersAdvancesTheirTierAndTracksOwnership()
+        {
+            var engine = new SlotGameEngine(17);
+            var state = engine.CreateNewRun();
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.HorizontalMatchMultiplier, BigInteger.Zero, "Horizontal Match Echo x2", "Test offer"));
+            string message;
+
+            Assert.That(engine.TryPurchase(state, 0, out message), Is.True);
+            Assert.That(state.Modifiers.HorizontalMatchCountMultiplier, Is.EqualTo(2));
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.HorizontalMatchMultiplier), Is.EqualTo(1));
+
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.HorizontalMatchMultiplier, BigInteger.Zero, "Horizontal Match Echo x5", "Test offer"));
+            Assert.That(engine.TryPurchase(state, 1, out message), Is.True);
+            Assert.That(state.Modifiers.HorizontalMatchCountMultiplier, Is.EqualTo(5));
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.HorizontalMatchMultiplier), Is.EqualTo(2));
         }
 
         [Test]
@@ -626,6 +696,36 @@ namespace SerenaysGambit.Tests
                 { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
                 { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
             };
+        }
+
+        private static SymbolKind[,] CreateWinningGridFor(PaylineGroup group)
+        {
+            switch (group)
+            {
+                case PaylineGroup.Horizontal:
+                    return new[,]
+                    {
+                        { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                        { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                        { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
+                    };
+                case PaylineGroup.Vertical:
+                    return new[,]
+                    {
+                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana },
+                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana },
+                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana }
+                    };
+                case PaylineGroup.CrissCross:
+                    return new[,]
+                    {
+                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Strawberry },
+                        { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry },
+                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Strawberry }
+                    };
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(group));
+            }
         }
 
         private static SymbolKind[,] CreateTripleJokerGrid()

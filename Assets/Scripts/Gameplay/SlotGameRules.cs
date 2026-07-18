@@ -22,6 +22,15 @@ namespace SerenaysGambit
         GameOver
     }
 
+    // Every payline belongs to one visual family. Match-count upgrades use this
+    // instead of an individual line ID so all rows, reels, or diagonals level up together.
+    public enum PaylineGroup
+    {
+        Horizontal,
+        Vertical,
+        CrissCross
+    }
+
     public enum ShopOfferKind
     {
         StrawberryValue,
@@ -33,7 +42,10 @@ namespace SerenaysGambit
         FreeSpins,
         BaseRollMultiplierX2,
         BaseRollMultiplierX10,
-        BaseOutputMultiplier
+        BaseOutputMultiplier,
+        HorizontalMatchMultiplier,
+        VerticalMatchMultiplier,
+        CrissCrossMatchMultiplier
     }
 
     public struct GridPosition
@@ -79,14 +91,21 @@ namespace SerenaysGambit
     public sealed class Payline
     {
         public Payline(string name, int order, params GridPosition[] positions)
+            : this(name, order, PaylineGroup.Horizontal, positions)
+        {
+        }
+
+        public Payline(string name, int order, PaylineGroup group, params GridPosition[] positions)
         {
             Name = name;
             Order = order;
+            Group = group;
             Positions = positions;
         }
 
         public string Name { get; private set; }
         public int Order { get; private set; }
+        public PaylineGroup Group { get; private set; }
         public GridPosition[] Positions { get; private set; }
     }
 
@@ -113,14 +132,14 @@ namespace SerenaysGambit
 
         public static readonly IReadOnlyList<Payline> Paylines = new List<Payline>
         {
-            new Payline("Top row", 0, new GridPosition(0, 0), new GridPosition(0, 1), new GridPosition(0, 2)),
-            new Payline("Middle row", 1, new GridPosition(1, 0), new GridPosition(1, 1), new GridPosition(1, 2)),
-            new Payline("Bottom row", 2, new GridPosition(2, 0), new GridPosition(2, 1), new GridPosition(2, 2)),
-            new Payline("Left reel", 3, new GridPosition(0, 0), new GridPosition(1, 0), new GridPosition(2, 0)),
-            new Payline("Middle reel", 4, new GridPosition(0, 1), new GridPosition(1, 1), new GridPosition(2, 1)),
-            new Payline("Right reel", 5, new GridPosition(0, 2), new GridPosition(1, 2), new GridPosition(2, 2)),
-            new Payline("Top-left diagonal", 6, new GridPosition(0, 0), new GridPosition(1, 1), new GridPosition(2, 2)),
-            new Payline("Top-right diagonal", 7, new GridPosition(0, 2), new GridPosition(1, 1), new GridPosition(2, 0))
+            new Payline("Top row", 0, PaylineGroup.Horizontal, new GridPosition(0, 0), new GridPosition(0, 1), new GridPosition(0, 2)),
+            new Payline("Middle row", 1, PaylineGroup.Horizontal, new GridPosition(1, 0), new GridPosition(1, 1), new GridPosition(1, 2)),
+            new Payline("Bottom row", 2, PaylineGroup.Horizontal, new GridPosition(2, 0), new GridPosition(2, 1), new GridPosition(2, 2)),
+            new Payline("Left reel", 3, PaylineGroup.Vertical, new GridPosition(0, 0), new GridPosition(1, 0), new GridPosition(2, 0)),
+            new Payline("Middle reel", 4, PaylineGroup.Vertical, new GridPosition(0, 1), new GridPosition(1, 1), new GridPosition(2, 1)),
+            new Payline("Right reel", 5, PaylineGroup.Vertical, new GridPosition(0, 2), new GridPosition(1, 2), new GridPosition(2, 2)),
+            new Payline("Top-left diagonal", 6, PaylineGroup.CrissCross, new GridPosition(0, 0), new GridPosition(1, 1), new GridPosition(2, 2)),
+            new Payline("Top-right diagonal", 7, PaylineGroup.CrissCross, new GridPosition(0, 2), new GridPosition(1, 1), new GridPosition(2, 0))
         };
 
         public static BigInteger TargetKurus(int level)
@@ -287,12 +306,14 @@ namespace SerenaysGambit
     {
         private readonly GameRulesConfig _config;
         private readonly Dictionary<SymbolKind, int> _symbolValues = new Dictionary<SymbolKind, int>();
+        private readonly Dictionary<PaylineGroup, int> _matchCountMultiplierIndexes = new Dictionary<PaylineGroup, int>();
 
         public RunModifiers() : this(GameRulesConfig.CreateDefault())
         {
         }
 
         private static readonly int[] BaseOutputMultipliers = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 1024 };
+        private static readonly int[] MatchCountMultipliers = { 1, 2, 5, 10, 100 };
 
         public RunModifiers(GameRulesConfig config)
         {
@@ -306,6 +327,10 @@ namespace SerenaysGambit
             BaseRollMultiplier = 1;
             TemporaryFreeSpins = 0;
             BaseOutputMultiplierIndex = 0;
+            foreach (PaylineGroup group in Enum.GetValues(typeof(PaylineGroup)))
+            {
+                _matchCountMultiplierIndexes[group] = 0;
+            }
         }
 
         public int StrawberryValue { get { return SymbolValue(SymbolKind.Strawberry); } }
@@ -317,6 +342,9 @@ namespace SerenaysGambit
         public int BaseRollMultiplier { get; private set; }
         public int TemporaryFreeSpins { get; private set; }
         public int BaseOutputMultiplierIndex { get; private set; }
+        public int HorizontalMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.Horizontal); } }
+        public int VerticalMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.Vertical); } }
+        public int CrissCrossMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.CrissCross); } }
 
         public BigInteger BaseOutputMultiplier
         {
@@ -328,6 +356,29 @@ namespace SerenaysGambit
             if (index < 0) return BigInteger.One;
             if (index >= BaseOutputMultipliers.Length) return BaseOutputMultipliers[BaseOutputMultipliers.Length - 1];
             return BaseOutputMultipliers[index];
+        }
+
+        public static int MatchCountMultiplierForIndex(int index)
+        {
+            if (index < 0) return 1;
+            if (index >= MatchCountMultipliers.Length) return MatchCountMultipliers[MatchCountMultipliers.Length - 1];
+            return MatchCountMultipliers[index];
+        }
+
+        public int MatchCountMultiplier(PaylineGroup group)
+        {
+            return MatchCountMultiplierForIndex(MatchCountMultiplierIndex(group));
+        }
+
+        public int MatchCountMultiplierIndex(PaylineGroup group)
+        {
+            int index;
+            return _matchCountMultiplierIndexes.TryGetValue(group, out index) ? index : 0;
+        }
+
+        public bool CanIncreaseMatchCountMultiplier(PaylineGroup group)
+        {
+            return MatchCountMultiplierIndex(group) < MatchCountMultipliers.Length - 1;
         }
 
         public int StartingRolls
@@ -385,6 +436,18 @@ namespace SerenaysGambit
             BaseOutputMultiplierIndex++;
             return true;
         }
+
+        public bool IncreaseMatchCountMultiplier(PaylineGroup group)
+        {
+            var currentIndex = MatchCountMultiplierIndex(group);
+            if (currentIndex >= MatchCountMultipliers.Length - 1)
+            {
+                return false;
+            }
+
+            _matchCountMultiplierIndexes[group] = currentIndex + 1;
+            return true;
+        }
     }
 
     public sealed class ShopOffer
@@ -425,7 +488,12 @@ namespace SerenaysGambit
 
         internal void RecordWinningPayline(BigInteger payoutKurus)
         {
-            WinningPaylineCount++;
+            RecordWinningPayline(payoutKurus, 1);
+        }
+
+        internal void RecordWinningPayline(BigInteger payoutKurus, int matchCountMultiplier)
+        {
+            WinningPaylineCount += Math.Max(1, matchCountMultiplier);
             GeneratedKurus += payoutKurus;
         }
     }
@@ -476,7 +544,7 @@ namespace SerenaysGambit
             foreach (var win in score.Wins)
             {
                 var symbol = win.IsTripleJoker ? SymbolKind.Joker : win.ResolvedSymbol;
-                GetSymbolStats(symbol).RecordWinningPayline(win.FinalPayoutKurus);
+                GetSymbolStats(symbol).RecordWinningPayline(win.FinalPayoutKurus, win.MatchCountMultiplier);
                 scoredTripleJoker |= win.IsTripleJoker;
             }
 
@@ -562,12 +630,18 @@ namespace SerenaysGambit
     public sealed class PaylineWin
     {
         public PaylineWin(Payline payline, SymbolKind resolvedSymbol, BigInteger linePayoutKurus, bool tripleJoker)
+            : this(payline, resolvedSymbol, linePayoutKurus, tripleJoker, 1)
+        {
+        }
+
+        public PaylineWin(Payline payline, SymbolKind resolvedSymbol, BigInteger linePayoutKurus, bool tripleJoker, int matchCountMultiplier)
         {
             Payline = payline;
             ResolvedSymbol = resolvedSymbol;
             LinePayoutKurus = linePayoutKurus;
             FinalPayoutKurus = BigInteger.Zero;
             IsTripleJoker = tripleJoker;
+            MatchCountMultiplier = Math.Max(1, matchCountMultiplier);
         }
 
         public Payline Payline { get; private set; }
@@ -575,6 +649,7 @@ namespace SerenaysGambit
         public BigInteger LinePayoutKurus { get; private set; }
         public BigInteger FinalPayoutKurus { get; internal set; }
         public bool IsTripleJoker { get; private set; }
+        public int MatchCountMultiplier { get; private set; }
     }
 
     public sealed class ScoredSpin
@@ -591,6 +666,16 @@ namespace SerenaysGambit
         public BigInteger PayoutKurus { get; private set; }
         public int ComboMultiplier { get; private set; }
         public int BatchFactor { get; private set; }
+
+        public int RewardAnimationCount(PaylineWin win)
+        {
+            if (win == null)
+            {
+                throw new ArgumentNullException(nameof(win));
+            }
+
+            return Math.Max(1, BatchFactor) * Math.Max(1, win.MatchCountMultiplier);
+        }
     }
 
     public sealed class SpinResult
@@ -665,7 +750,23 @@ namespace SerenaysGambit
 
         public static BigInteger CalculateFinalPayout(BigInteger rawPayout, int comboMultiplier, BigInteger moneyMultiplier, BigInteger baseOutputMultiplier, int batchFactor)
         {
-            return rawPayout * comboMultiplier * moneyMultiplier * baseOutputMultiplier * batchFactor;
+            return CalculateFinalPayout(rawPayout, comboMultiplier, moneyMultiplier, baseOutputMultiplier, batchFactor, 1);
+        }
+
+        public static BigInteger CalculateFinalPayout(
+            BigInteger rawPayout,
+            int comboMultiplier,
+            BigInteger moneyMultiplier,
+            BigInteger baseOutputMultiplier,
+            int batchFactor,
+            int matchCountMultiplier)
+        {
+            return rawPayout
+                * comboMultiplier
+                * moneyMultiplier
+                * baseOutputMultiplier
+                * batchFactor
+                * Math.Max(1, matchCountMultiplier);
         }
     }
 
@@ -698,24 +799,29 @@ namespace SerenaysGambit
 
                 if (MatchResolver.TryResolveWinningLine(symbols, out resolved, out tripleJoker))
                 {
-                    wins.Add(new PaylineWin(payline, resolved, PayoutCalculator.CalculateLinePayout(resolved, modifiers, tripleJoker), tripleJoker));
+                    wins.Add(new PaylineWin(
+                        payline,
+                        resolved,
+                        PayoutCalculator.CalculateLinePayout(resolved, modifiers, tripleJoker),
+                        tripleJoker,
+                        modifiers.MatchCountMultiplier(payline.Group)));
                 }
             }
 
             var comboMultiplier = PayoutCalculator.ComboMultiplierFor(wins.Count);
-            var rawPayout = BigInteger.Zero;
+            var finalPayout = BigInteger.Zero;
             foreach (var win in wins)
             {
-                rawPayout += win.LinePayoutKurus;
                 win.FinalPayoutKurus = PayoutCalculator.CalculateFinalPayout(
                     win.LinePayoutKurus,
                     comboMultiplier,
                     modifiers.MoneyMultiplier,
                     modifiers.BaseOutputMultiplier,
-                    batchFactor);
+                    batchFactor,
+                    win.MatchCountMultiplier);
+                finalPayout += win.FinalPayoutKurus;
             }
 
-            var finalPayout = PayoutCalculator.CalculateFinalPayout(rawPayout, comboMultiplier, modifiers.MoneyMultiplier, modifiers.BaseOutputMultiplier, batchFactor);
             return new ScoredSpin(wins, finalPayout, comboMultiplier, batchFactor);
         }
 
@@ -945,6 +1051,15 @@ namespace SerenaysGambit
                 case ShopOfferKind.BaseOutputMultiplier:
                     state.Modifiers.IncreaseBaseOutputMultiplier();
                     break;
+                case ShopOfferKind.HorizontalMatchMultiplier:
+                    state.Modifiers.IncreaseMatchCountMultiplier(PaylineGroup.Horizontal);
+                    break;
+                case ShopOfferKind.VerticalMatchMultiplier:
+                    state.Modifiers.IncreaseMatchCountMultiplier(PaylineGroup.Vertical);
+                    break;
+                case ShopOfferKind.CrissCrossMatchMultiplier:
+                    state.Modifiers.IncreaseMatchCountMultiplier(PaylineGroup.CrissCross);
+                    break;
             }
 
             state.Stats.RecordPurchase(offer.CostKurus);
@@ -1038,6 +1153,21 @@ namespace SerenaysGambit
                 options.Add(ShopOfferKind.BaseOutputMultiplier);
             }
 
+            if (state.Modifiers.CanIncreaseMatchCountMultiplier(PaylineGroup.Horizontal))
+            {
+                options.Add(ShopOfferKind.HorizontalMatchMultiplier);
+            }
+
+            if (state.Modifiers.CanIncreaseMatchCountMultiplier(PaylineGroup.Vertical))
+            {
+                options.Add(ShopOfferKind.VerticalMatchMultiplier);
+            }
+
+            if (state.Modifiers.CanIncreaseMatchCountMultiplier(PaylineGroup.CrissCross))
+            {
+                options.Add(ShopOfferKind.CrissCrossMatchMultiplier);
+            }
+
             if (!rerollUnsoldOnly)
             {
                 state.ShopOffers.Clear();
@@ -1072,6 +1202,11 @@ namespace SerenaysGambit
             var cost = target / 20;
             string title;
             string description;
+            PaylineGroup matchGroup;
+            var isMatchCountOffer = TryGetPaylineGroupForOffer(kind, out matchGroup);
+            var nextMatchCountMultiplier = isMatchCountOffer
+                ? RunModifiers.MatchCountMultiplierForIndex(state.Modifiers.MatchCountMultiplierIndex(matchGroup) + 1)
+                : 1;
 
             switch (kind)
             {
@@ -1129,6 +1264,14 @@ namespace SerenaysGambit
                         cost = (target / 20) * nextIndex;
                     }
                     break;
+                case ShopOfferKind.HorizontalMatchMultiplier:
+                case ShopOfferKind.VerticalMatchMultiplier:
+                case ShopOfferKind.CrissCrossMatchMultiplier:
+                    title = PaylineGroupDisplayName(matchGroup) + " Match Echo x" + nextMatchCountMultiplier;
+                    description = "Counts every " + PaylineGroupDisplayName(matchGroup).ToLowerInvariant()
+                        + " match x" + nextMatchCountMultiplier + ". Reward pulses echo at the same count and accelerate for bigger bursts.";
+                    cost = MatchCountUpgradeCost(target, nextMatchCountMultiplier);
+                    break;
                 default:
                     title = "Unknown Offer";
                     description = string.Empty;
@@ -1145,20 +1288,80 @@ namespace SerenaysGambit
             {
                 if (!string.IsNullOrEmpty(authoredText.DisplayName))
                 {
-                    title = kind == ShopOfferKind.BaseOutputMultiplier
-                        ? authoredText.DisplayName + " x" + RunModifiers.BaseOutputMultiplierForIndex(state.Modifiers.BaseOutputMultiplierIndex + 1)
-                        : authoredText.DisplayName;
+                    if (kind == ShopOfferKind.BaseOutputMultiplier)
+                    {
+                        title = authoredText.DisplayName + " x" + RunModifiers.BaseOutputMultiplierForIndex(state.Modifiers.BaseOutputMultiplierIndex + 1);
+                    }
+                    else if (isMatchCountOffer)
+                    {
+                        title = authoredText.DisplayName + " x" + nextMatchCountMultiplier;
+                    }
+                    else
+                    {
+                        title = authoredText.DisplayName;
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(authoredText.Description))
                 {
-                    description = kind == ShopOfferKind.BaseOutputMultiplier
-                        ? authoredText.Description + " (x" + RunModifiers.BaseOutputMultiplierForIndex(state.Modifiers.BaseOutputMultiplierIndex + 1) + ")"
-                        : authoredText.Description;
+                    if (kind == ShopOfferKind.BaseOutputMultiplier)
+                    {
+                        description = authoredText.Description + " (x" + RunModifiers.BaseOutputMultiplierForIndex(state.Modifiers.BaseOutputMultiplierIndex + 1) + ")";
+                    }
+                    else if (isMatchCountOffer)
+                    {
+                        description = authoredText.Description + " (x" + nextMatchCountMultiplier + ")";
+                    }
+                    else
+                    {
+                        description = authoredText.Description;
+                    }
                 }
             }
 
             return new ShopOffer(kind, cost, title, description);
+        }
+
+        private static BigInteger MatchCountUpgradeCost(BigInteger target, int multiplier)
+        {
+            switch (multiplier)
+            {
+                case 2: return target / 16;
+                case 5: return target / 8;
+                case 10: return target / 4;
+                case 100: return target / 2;
+                default: return target / 20;
+            }
+        }
+
+        private static bool TryGetPaylineGroupForOffer(ShopOfferKind kind, out PaylineGroup group)
+        {
+            switch (kind)
+            {
+                case ShopOfferKind.HorizontalMatchMultiplier:
+                    group = PaylineGroup.Horizontal;
+                    return true;
+                case ShopOfferKind.VerticalMatchMultiplier:
+                    group = PaylineGroup.Vertical;
+                    return true;
+                case ShopOfferKind.CrissCrossMatchMultiplier:
+                    group = PaylineGroup.CrissCross;
+                    return true;
+                default:
+                    group = PaylineGroup.Horizontal;
+                    return false;
+            }
+        }
+
+        private static string PaylineGroupDisplayName(PaylineGroup group)
+        {
+            switch (group)
+            {
+                case PaylineGroup.Horizontal: return "Horizontal";
+                case PaylineGroup.Vertical: return "Vertical";
+                case PaylineGroup.CrissCross: return "Criss-Cross";
+                default: return "Match";
+            }
         }
     }
 

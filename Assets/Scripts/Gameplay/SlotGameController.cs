@@ -29,8 +29,10 @@ namespace SerenaysGambit
         private bool _isSpinAnimating;
 
         private const float FirstWinPulseDuration = 0.6f;
-        private const float MinimumWinPulseDuration = 0.08f;
-        private const float BatchStepSpeedIncrease = 0.35f;
+        private const float MinimumWinPulseDuration = 0.025f;
+        private const int MaximumRewardPulseWaves = 25;
+        private const int MaximumCoinFlightsPerCellPerPulse = 12;
+        private const float RewardPulseSpeedIncrease = 0.08f;
 
         private TextMeshProUGUI _cashText;
         private TextMeshProUGUI _targetText;
@@ -499,6 +501,9 @@ namespace SerenaysGambit
                 case ShopOfferKind.BaseRollMultiplierX2:
                 case ShopOfferKind.BaseRollMultiplierX10: return "Current base rolls: x" + _state.Modifiers.BaseRollMultiplier;
                 case ShopOfferKind.BaseOutputMultiplier: return "Current output multiplier: x" + _state.Modifiers.BaseOutputMultiplier;
+                case ShopOfferKind.HorizontalMatchMultiplier: return "Horizontal matches and reward pulses: x" + _state.Modifiers.HorizontalMatchCountMultiplier;
+                case ShopOfferKind.VerticalMatchMultiplier: return "Vertical matches and reward pulses: x" + _state.Modifiers.VerticalMatchCountMultiplier;
+                case ShopOfferKind.CrissCrossMatchMultiplier: return "Criss-cross matches and reward pulses: x" + _state.Modifiers.CrissCrossMatchCountMultiplier;
                 default: return string.Empty;
             }
         }
@@ -517,6 +522,9 @@ namespace SerenaysGambit
                 case ShopOfferKind.BaseRollMultiplierX2: return "R2";
                 case ShopOfferKind.BaseRollMultiplierX10: return "R10";
                 case ShopOfferKind.BaseOutputMultiplier: return "OUT";
+                case ShopOfferKind.HorizontalMatchMultiplier: return "H";
+                case ShopOfferKind.VerticalMatchMultiplier: return "V";
+                case ShopOfferKind.CrissCrossMatchMultiplier: return "X";
                 default: return "?";
             }
         }
@@ -535,6 +543,9 @@ namespace SerenaysGambit
                 case ShopOfferKind.BaseRollMultiplierX2:
                 case ShopOfferKind.BaseRollMultiplierX10: return new Color(0.57f, 0.44f, 0.78f, 1f);
                 case ShopOfferKind.BaseOutputMultiplier: return new Color(0.78f, 0.49f, 0.76f, 1f);
+                case ShopOfferKind.HorizontalMatchMultiplier: return new Color(0.24f, 0.67f, 0.86f, 1f);
+                case ShopOfferKind.VerticalMatchMultiplier: return new Color(0.35f, 0.78f, 0.57f, 1f);
+                case ShopOfferKind.CrissCrossMatchMultiplier: return new Color(0.95f, 0.50f, 0.30f, 1f);
                 default: return new Color(0.5f, 0.5f, 0.5f, 1f);
             }
         }
@@ -729,10 +740,9 @@ namespace SerenaysGambit
             Transform spawnParent = canvas != null ? canvas.transform : transform;
             BigInteger startCash = result.CashBeforeSpinKurus;
 
-            // Each batch unit has its own DOTween Sequence. The next sequence is created only
-            // after the previous coin flight finishes, while the highlight, counter, and coins
-            // within a sequence are joined and therefore play at the same time.
-            int batchSteps = Mathf.Max(1, result.Score.BatchFactor);
+            // Each logical hit gets a payout share. x2, x5, and x10 upgrades therefore play
+            // exactly that many fast reward pulses. The x100 tier is compacted into rapid
+            // bursts so a full-board win stays punchy instead of trapping the player in a long queue.
 
             for (int winIndex = 0; winIndex < wins.Count; winIndex++)
             {
@@ -741,20 +751,29 @@ namespace SerenaysGambit
 
                 BigInteger winStartPayout = accumulatedPayout;
                 BigInteger winPayout = win.FinalPayoutKurus;
-                for (int batchStep = 0; batchStep < batchSteps; batchStep++)
+                int logicalRewardHits = result.Score.RewardAnimationCount(win);
+                int pulseWaves = Mathf.Min(logicalRewardHits, MaximumRewardPulseWaves);
+                int hitsPerPulse = Mathf.CeilToInt((float)logicalRewardHits / pulseWaves);
+
+                for (int pulseIndex = 0; pulseIndex < pulseWaves; pulseIndex++)
                 {
-                    BigInteger stepStartPayout = PayoutAtBatchStep(winStartPayout, winPayout, batchStep, batchSteps);
-                    BigInteger stepEndPayout = PayoutAtBatchStep(winStartPayout, winPayout, batchStep + 1, batchSteps);
-                    float stepDuration = BatchRewardDuration(winIndex, batchStep, batchSteps);
+                    int completedHitsBeforePulse = pulseIndex * hitsPerPulse;
+                    int completedHitsAfterPulse = Mathf.Min(logicalRewardHits, completedHitsBeforePulse + hitsPerPulse);
+                    int hitsInPulse = completedHitsAfterPulse - completedHitsBeforePulse;
+                    BigInteger stepStartPayout = PayoutAtRewardHit(winStartPayout, winPayout, completedHitsBeforePulse, logicalRewardHits);
+                    BigInteger stepEndPayout = PayoutAtRewardHit(winStartPayout, winPayout, completedHitsAfterPulse, logicalRewardHits);
+                    float stepDuration = RewardPulseDuration(winIndex, pulseIndex, pulseWaves);
                     var spawnedCoins = new List<GameObject>();
-                    var stepSequence = CreateBatchRewardStep(
+                    var stepSequence = CreateRewardPulse(
                         result,
                         win,
                         cells,
                         spawnParent,
                         startCash,
-                        batchStep,
-                        batchSteps,
+                        completedHitsBeforePulse,
+                        completedHitsAfterPulse,
+                        logicalRewardHits,
+                        hitsInPulse,
                         stepStartPayout,
                         stepEndPayout,
                         stepDuration,
@@ -810,14 +829,16 @@ namespace SerenaysGambit
             return cells;
         }
 
-        private Sequence CreateBatchRewardStep(
+        private Sequence CreateRewardPulse(
             SpinResult result,
             PaylineWin win,
             List<CellRef> cells,
             Transform spawnParent,
             BigInteger startCash,
-            int batchStep,
-            int batchSteps,
+            int completedHitsBeforePulse,
+            int completedHitsAfterPulse,
+            int logicalRewardHits,
+            int hitsInPulse,
             BigInteger stepStartPayout,
             BigInteger stepEndPayout,
             float duration,
@@ -829,8 +850,14 @@ namespace SerenaysGambit
             step.AppendCallback(delegate
             {
                 BeginPaylineHighlight(cells);
+                var hitLabel = logicalRewardHits > 1
+                    ? " — hit " + (completedHitsBeforePulse + 1) + (hitsInPulse > 1 ? "-" + completedHitsAfterPulse : string.Empty) + "/" + logicalRewardHits
+                    : string.Empty;
+                var matchEchoLabel = win.MatchCountMultiplier > 1
+                    ? " — " + PaylineGroupDisplayName(win.Payline.Group) + " Echo x" + win.MatchCountMultiplier
+                    : string.Empty;
                 _resultText.text = "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")"
-                    + (batchSteps > 1 ? " — batch " + (batchStep + 1) + "/" + batchSteps : string.Empty);
+                    + matchEchoLabel + hitLabel;
                 UpdateBatchPayout(result, startCash, stepStartPayout, stepEndPayout, 0f);
             });
 
@@ -851,10 +878,14 @@ namespace SerenaysGambit
 
             for (int cellIndex = 0; cellIndex < cells.Count; cellIndex++)
             {
-                var coinFlight = CreateCoinFlight(cells[cellIndex], spawnParent, duration, spawnedCoins);
-                if (coinFlight != null)
+                int coinFlights = Mathf.Min(hitsInPulse, MaximumCoinFlightsPerCellPerPulse);
+                for (int coinIndex = 0; coinIndex < coinFlights; coinIndex++)
                 {
-                    step.Join(coinFlight);
+                    var coinFlight = CreateCoinFlight(cells[cellIndex], spawnParent, duration, spawnedCoins);
+                    if (coinFlight != null)
+                    {
+                        step.Join(coinFlight);
+                    }
                 }
             }
 
@@ -876,8 +907,8 @@ namespace SerenaysGambit
             Vector3 burstOffset = new Vector3(UnityEngine.Random.Range(-40f, 40f), UnityEngine.Random.Range(-40f, 40f), 0f);
             Vector3 burstPosition = startPosition + burstOffset;
             Vector3 targetPosition = _thresholdBarRect != null ? _thresholdBarRect.position : _payoutText.transform.position;
-            float burstDuration = Mathf.Max(0.03f, duration * 0.3f);
-            float flightDuration = duration - burstDuration;
+            float burstDuration = Mathf.Max(0.005f, duration * 0.35f);
+            float flightDuration = Mathf.Max(0.005f, duration - burstDuration);
 
             coin.SetActive(false);
             var flight = DOTween.Sequence();
@@ -906,16 +937,27 @@ namespace SerenaysGambit
             return flight;
         }
 
-        private static float BatchRewardDuration(int winIndex, int batchStep, int batchSteps)
+        private static float RewardPulseDuration(int winIndex, int pulseIndex, int pulseWaves)
         {
             float winDuration = FirstWinPulseDuration / (1f + winIndex * 0.4f);
-            float firstBatchStepDuration = batchSteps > 1 ? winDuration * 0.5f : winDuration;
-            return Mathf.Max(MinimumWinPulseDuration, firstBatchStepDuration / (1f + batchStep * BatchStepSpeedIncrease));
+            float initialPulseDuration = pulseWaves > 1 ? winDuration / pulseWaves : winDuration;
+            return Mathf.Max(MinimumWinPulseDuration, initialPulseDuration / (1f + pulseIndex * RewardPulseSpeedIncrease));
         }
 
-        private static BigInteger PayoutAtBatchStep(BigInteger winStartPayout, BigInteger winPayout, int completedBatchSteps, int totalBatchSteps)
+        private static BigInteger PayoutAtRewardHit(BigInteger winStartPayout, BigInteger winPayout, int completedRewardHits, int totalRewardHits)
         {
-            return winStartPayout + winPayout * completedBatchSteps / totalBatchSteps;
+            return winStartPayout + winPayout * completedRewardHits / totalRewardHits;
+        }
+
+        private static string PaylineGroupDisplayName(PaylineGroup group)
+        {
+            switch (group)
+            {
+                case PaylineGroup.Horizontal: return "Horizontal";
+                case PaylineGroup.Vertical: return "Vertical";
+                case PaylineGroup.CrissCross: return "Criss-Cross";
+                default: return "Match";
+            }
         }
 
         private void BeginPaylineHighlight(List<CellRef> cells)

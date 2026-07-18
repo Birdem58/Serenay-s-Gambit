@@ -55,5 +55,20 @@ namespace SerenaysGambit.Tests
             Assert.That(config.FindShopItemText(ShopOfferKind.MoneyMultiplier).DisplayName, Is.EqualTo(moneyMultiplier.DisplayName));
             Assert.That(config.FindShopItemText(ShopOfferKind.MoneyMultiplier).Description, Is.EqualTo(moneyMultiplier.Description));
         }
+
+        [Test]
+        public void DirectionalMatchUpgradeAssetsAreAvailableToTheRuntimeShop()
+        {
+            var horizontal = AssetDatabase.LoadAssetAtPath<ShopItemDefinition>("Assets/Resources/SerenaysGambit/Data/ShopItems/HorizontalMatchMultiplier.asset");
+            var vertical = AssetDatabase.LoadAssetAtPath<ShopItemDefinition>("Assets/Resources/SerenaysGambit/Data/ShopItems/VerticalMatchMultiplier.asset");
+            var crissCross = AssetDatabase.LoadAssetAtPath<ShopItemDefinition>("Assets/Resources/SerenaysGambit/Data/ShopItems/CrissCrossMatchMultiplier.asset");
+
+            Assert.That(horizontal, Is.Not.Null);
+            Assert.That(horizontal.Kind, Is.EqualTo(ShopOfferKind.HorizontalMatchMultiplier));
+            Assert.That(vertical, Is.Not.Null);
+            Assert.That(vertical.Kind, Is.EqualTo(ShopOfferKind.VerticalMatchMultiplier));
+            Assert.That(crissCross, Is.Not.Null);
+            Assert.That(crissCross.Kind, Is.EqualTo(ShopOfferKind.CrissCrossMatchMultiplier));
+        }
     }
 }
