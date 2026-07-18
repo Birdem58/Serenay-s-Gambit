@@ -48,6 +48,7 @@ namespace SerenaysGambit
         private TextMeshProUGUI _cashText;
         private TextMeshProUGUI _targetText;
         private TextMeshProUGUI _rollsText;
+        private TextMeshProUGUI _roundText;
         private RectTransform _organsLayout;
         private readonly List<OwnedUpgradeView> _organViews = new List<OwnedUpgradeView>();
         private bool _isFirstRefresh = true;
@@ -419,10 +420,11 @@ namespace SerenaysGambit
             var root = canvas.transform;
             try
             {
-                _cashText = Require<TextMeshProUGUI>(root, "TopHud/CashText");
-                _targetText = Require<TextMeshProUGUI>(root, "TopHud/TargetText");
-                _rollsText = Require<TextMeshProUGUI>(root, "MainContent/RollsText");
-                _organsLayout = Require<RectTransform>(root, "MainContent/OrgansText");
+                _cashText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/CashText");
+                _targetText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/TargetText");
+                _roundText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/RoundText");
+                _rollsText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/RollsText");
+                _organsLayout = Require<RectTransform>(root, "MainContent/VerticalShelfPanel/OrgansText");
                 var organsTextComp = _organsLayout.GetComponent<TextMeshProUGUI>();
                 if (organsTextComp != null)
                 {
@@ -440,11 +442,11 @@ namespace SerenaysGambit
                 organsLayoutGroup.childControlWidth = false;
                 organsLayoutGroup.childControlHeight = false;
 
-                _ticketsText = Require<TextMeshProUGUI>(root, "TopHud/TicketsText");
-                _payoutText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/PayoutText");
+                _ticketsText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/TicketsText");
+                _payoutText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/PayoutText");
                 _resultText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ResultText");
                 _shopWalletText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/ShopWalletText");
-                _ownedUpgradesLayout = Require<RectTransform>(root, "MainContent/SerenayShopPanel/OwnedUpgradesLayout");
+                _ownedUpgradesLayout = Require<RectTransform>(root, "MainContent/VerticalShelfPanel/OwnedUpgradesLayout");
                 _upgradeTooltip = Require<UpgradeTooltip>(root, "UpgradeTooltip");
                 if (_ownedUpgradePrefab == null)
                 {
@@ -457,9 +459,9 @@ namespace SerenaysGambit
                 _thresholdBarText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ThresholdBar/Label");
 
                 _lever = Require<SlotLever>(root, "MainContent/SlotMachinePanel/LeverPanel/Lever");
-                _spin1xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin1xButton");
-                _spin5xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin5xButton");
-                _spin10xButton = Require<Button>(root, "MainContent/SlotMachinePanel/LeverPanel/BatchControls/ButtonsRow/Spin10xButton");
+                _spin1xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin1xButton");
+                _spin5xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin5xButton");
+                _spin10xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin10xButton");
                 _refreshButton = Require<Button>(root, "MainContent/SerenayShopPanel/RefreshButton");
                 _refreshLabel = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/RefreshButton/Label");
 
@@ -506,33 +508,17 @@ namespace SerenaysGambit
                 _offerButtons[offerIndex].onClick.AddListener(delegate { BuyOffer(capturedIndex); });
             }
 
-            // Create OwnedGambitsLayout and OwnedGambitsHeading by shifting existing components
+            // Create OwnedGambitsLayout and OwnedGambitsHeading under vertical shelf
             try
             {
-                var upgradesHeading = root.Find("MainContent/SerenayShopPanel/OwnedUpgradesHeading")?.GetComponent<RectTransform>();
-                var upgradesLayout = root.Find("MainContent/SerenayShopPanel/OwnedUpgradesLayout")?.GetComponent<RectTransform>();
+                var upgradesHeading = root.Find("MainContent/VerticalShelfPanel/OwnedUpgradesHeading")?.GetComponent<RectTransform>();
+                var upgradesLayout = root.Find("MainContent/VerticalShelfPanel/OwnedUpgradesLayout")?.GetComponent<RectTransform>();
 
                 if (upgradesHeading != null && upgradesLayout != null)
                 {
-                    // Shift upgrades up to make room
-                    upgradesHeading.anchorMin = new Vector2(0.05f, 0.38f);
-                    upgradesHeading.anchorMax = new Vector2(0.95f, 0.42f);
-                    upgradesHeading.offsetMin = Vector2.zero;
-                    upgradesHeading.offsetMax = Vector2.zero;
-
-                    upgradesLayout.anchorMin = new Vector2(0.05f, 0.24f);
-                    upgradesLayout.anchorMax = new Vector2(0.95f, 0.38f);
-                    upgradesLayout.offsetMin = Vector2.zero;
-                    upgradesLayout.offsetMax = Vector2.zero;
-
                     // Create OwnedGambitsHeading
                     var gambitsHeadingObj = Instantiate(upgradesHeading.gameObject, upgradesHeading.parent);
                     gambitsHeadingObj.name = "OwnedGambitsHeading";
-                    var gambitsHeadingRect = gambitsHeadingObj.GetComponent<RectTransform>();
-                    gambitsHeadingRect.anchorMin = new Vector2(0.05f, 0.19f);
-                    gambitsHeadingRect.anchorMax = new Vector2(0.95f, 0.23f);
-                    gambitsHeadingRect.offsetMin = Vector2.zero;
-                    gambitsHeadingRect.offsetMax = Vector2.zero;
 
                     var headingText = gambitsHeadingObj.GetComponent<TextMeshProUGUI>();
                     if (headingText != null)
@@ -550,10 +536,6 @@ namespace SerenaysGambit
                     }
 
                     _ownedGambitsLayout = gambitsLayoutObj.GetComponent<RectTransform>();
-                    _ownedGambitsLayout.anchorMin = new Vector2(0.05f, 0.05f);
-                    _ownedGambitsLayout.anchorMax = new Vector2(0.95f, 0.19f);
-                    _ownedGambitsLayout.offsetMin = Vector2.zero;
-                    _ownedGambitsLayout.offsetMax = Vector2.zero;
                 }
             }
             catch (Exception ex)
@@ -566,10 +548,14 @@ namespace SerenaysGambit
 
         private void RefreshView()
         {
-            _cashText.text = "Cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
-            _targetText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(_state.CurrentTargetKurus);
+            if (_roundText != null)
+            {
+                _roundText.text = "Round Number: Round " + _state.ThresholdLevel;
+            }
+            _cashText.text = "Current Total: " + MoneyFormatter.FormatTL(_state.CashKurus);
+            _targetText.text = "Threshold Money: " + MoneyFormatter.FormatTL(_state.CurrentTargetKurus);
             UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
-            _rollsText.text = "Rolls: " + _state.RollsRemaining;
+            _rollsText.text = "Rolls Left: " + _state.RollsRemaining;
             RefreshOrganViews(!_isFirstRefresh);
             _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
@@ -1519,7 +1505,7 @@ namespace SerenaysGambit
             Vector3 startScale = coin.transform.localScale;
             Vector3 burstOffset = new Vector3(UnityEngine.Random.Range(-40f, 40f), UnityEngine.Random.Range(-40f, 40f), 0f);
             Vector3 burstPosition = startPosition + burstOffset;
-            Vector3 targetPosition = _thresholdBarRect != null ? _thresholdBarRect.position : _payoutText.transform.position;
+            Vector3 targetPosition = _cashText != null ? _cashText.transform.position : (_thresholdBarRect != null ? _thresholdBarRect.position : _payoutText.transform.position);
             float burstDuration = Mathf.Max(0.005f, duration * 0.35f);
             float flightDuration = Mathf.Max(0.005f, duration - burstDuration);
 

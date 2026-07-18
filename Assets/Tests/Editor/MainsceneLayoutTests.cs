@@ -20,14 +20,22 @@ namespace SerenaysGambit.Tests
             Assert.That(scaler.uiScaleMode, Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
             Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920, 1080)));
 
+            var shelf = canvas.transform.Find("MainContent/VerticalShelfPanel").GetComponent<RectTransform>();
             var slot = canvas.transform.Find("MainContent/SlotMachinePanel").GetComponent<RectTransform>();
             var shop = canvas.transform.Find("MainContent/SerenayShopPanel").GetComponent<RectTransform>();
+            Assert.That(shelf, Is.Not.Null);
             Assert.That(slot, Is.Not.Null);
             Assert.That(shop, Is.Not.Null);
-            Assert.That(slot.anchorMin.x, Is.EqualTo(0f).Within(0.001f));
-            Assert.That(slot.anchorMax.x, Is.EqualTo(0.75f).Within(0.001f));
-            Assert.That(shop.anchorMin.x, Is.EqualTo(0.75f).Within(0.001f));
+
+            Assert.That(shelf.anchorMin.x, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(shelf.anchorMax.x, Is.EqualTo(0.20f).Within(0.001f));
+            Assert.That(slot.anchorMin.x, Is.EqualTo(0.20f).Within(0.001f));
+            Assert.That(slot.anchorMax.x, Is.EqualTo(0.80f).Within(0.001f));
+            Assert.That(shop.anchorMin.x, Is.EqualTo(0.80f).Within(0.001f));
             Assert.That(shop.anchorMax.x, Is.EqualTo(1f).Within(0.001f));
+
+            Assert.That(shelf.offsetMin, Is.EqualTo(Vector2.zero));
+            Assert.That(shelf.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(slot.offsetMin, Is.EqualTo(Vector2.zero));
             Assert.That(slot.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(shop.offsetMin, Is.EqualTo(Vector2.zero));
@@ -37,7 +45,7 @@ namespace SerenaysGambit.Tests
             Assert.That(canvas.transform.Find("MainContent/SlotMachinePanel/SlotGrid"), Is.Not.Null);
             var leverPanel = canvas.transform.Find("MainContent/SlotMachinePanel/LeverPanel");
             Assert.That(leverPanel, Is.Not.Null);
-            var batchControls = leverPanel.Find("BatchControls");
+            var batchControls = canvas.transform.Find("MainContent/VerticalShelfPanel/BatchControls");
             var offerList = canvas.transform.Find("MainContent/SerenayShopPanel/OfferList");
             Assert.That(batchControls, Is.Not.Null);
             Assert.That(offerList, Is.Not.Null);
@@ -71,12 +79,12 @@ namespace SerenaysGambit.Tests
             var canvas = GameObject.Find("GameCanvas");
             Assert.That(canvas, Is.Not.Null, "Mainscene must include the GameCanvas.");
 
-            var shop = canvas.transform.Find("MainContent/SerenayShopPanel");
-            Assert.That(shop, Is.Not.Null);
-            Assert.That(shop.Find("OwnedUpgradesText"), Is.Null);
-            Assert.That(shop.Find("OwnedUpgradesHeading").GetComponent<TextMeshProUGUI>(), Is.Not.Null);
+            var shelf = canvas.transform.Find("MainContent/VerticalShelfPanel");
+            Assert.That(shelf, Is.Not.Null);
+            Assert.That(shelf.Find("OwnedUpgradesText"), Is.Null);
+            Assert.That(shelf.Find("OwnedUpgradesHeading").GetComponent<TextMeshProUGUI>(), Is.Not.Null);
 
-            var layout = shop.Find("OwnedUpgradesLayout");
+            var layout = shelf.Find("OwnedUpgradesLayout");
             Assert.That(layout, Is.Not.Null);
             var grid = layout.GetComponent<GridLayoutGroup>();
             Assert.That(grid, Is.Not.Null);
@@ -105,14 +113,14 @@ namespace SerenaysGambit.Tests
             var canvas = GameObject.Find("GameCanvas");
             Assert.That(canvas, Is.Not.Null, "Mainscene must include the GameCanvas.");
 
-            var organsTransform = canvas.transform.Find("MainContent/OrgansText");
-            Assert.That(organsTransform, Is.Not.Null, "Expected OrgansText/Layout in MainContent.");
+            var organsTransform = canvas.transform.Find("MainContent/VerticalShelfPanel/OrgansText");
+            Assert.That(organsTransform, Is.Not.Null, "Expected OrgansText/Layout in VerticalShelfPanel.");
 
             var rect = organsTransform.GetComponent<RectTransform>();
             Assert.That(rect, Is.Not.Null);
 
             var father = organsTransform.parent;
-            Assert.That(father.name, Is.EqualTo("MainContent"));
+            Assert.That(father.name, Is.EqualTo("VerticalShelfPanel"));
         }
     }
 }
