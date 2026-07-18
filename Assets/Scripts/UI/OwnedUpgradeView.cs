@@ -2,6 +2,7 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
 
 namespace SerenaysGambit
 {
@@ -66,6 +67,21 @@ namespace SerenaysGambit
             }
 
             _fadeRoutine = StartCoroutine(FadeOut(duration));
+        }
+
+        public void PunchScaleAndFadeOut(float duration)
+        {
+            EnsureReferences();
+            CancelFade();
+
+            _canvasGroup.blocksRaycasts = false;
+            _canvasGroup.interactable = false;
+
+            transform.DOPunchScale(Vector3.one * 0.3f, duration, 0, 0f);
+            _canvasGroup.DOFade(0f, duration).OnComplete(() =>
+            {
+                Destroy(gameObject);
+            });
         }
 
         private IEnumerator FadeOut(float duration)

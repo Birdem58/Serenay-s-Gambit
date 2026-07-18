@@ -118,7 +118,6 @@ namespace SerenaysGambit
         public const int OrganCount = 5;
         public const int BaseRolls = 10;
         public const int FreeSpinBundle = 20;
-        public const int MaxMagnetTier = 5;
         public static readonly BigInteger BaseLinePayoutKurus = new BigInteger(1000); // TL 10.00
         public static readonly BigInteger TripleJokerMultiplierNumerator = new BigInteger(4692);
         public static readonly BigInteger TripleJokerMultiplierDenominator = new BigInteger(100);

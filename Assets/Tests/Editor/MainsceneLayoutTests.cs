@@ -98,5 +98,21 @@ namespace SerenaysGambit.Tests
             Assert.That(prefab.GetComponent<CanvasGroup>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<Image>(), Is.Not.Null);
         }
+
+        [Test]
+        public void OrgansLayoutContainerIsPositionedCorrectly()
+        {
+            var canvas = GameObject.Find("GameCanvas");
+            Assert.That(canvas, Is.Not.Null, "Mainscene must include the GameCanvas.");
+
+            var organsTransform = canvas.transform.Find("MainContent/OrgansText");
+            Assert.That(organsTransform, Is.Not.Null, "Expected OrgansText/Layout in MainContent.");
+
+            var rect = organsTransform.GetComponent<RectTransform>();
+            Assert.That(rect, Is.Not.Null);
+
+            var father = organsTransform.parent;
+            Assert.That(father.name, Is.EqualTo("MainContent"));
+        }
     }
 }

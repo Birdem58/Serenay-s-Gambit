@@ -37,7 +37,9 @@ namespace SerenaysGambit
         private TextMeshProUGUI _cashText;
         private TextMeshProUGUI _targetText;
         private TextMeshProUGUI _rollsText;
-        private TextMeshProUGUI _organsText;
+        private RectTransform _organsLayout;
+        private readonly List<OwnedUpgradeView> _organViews = new List<OwnedUpgradeView>();
+        private bool _isFirstRefresh = true;
         private TextMeshProUGUI _ticketsText;
         private TextMeshProUGUI _payoutText;
         private TextMeshProUGUI _resultText;
@@ -135,9 +137,12 @@ namespace SerenaysGambit
         private void StartNewRun()
         {
             ClearOwnedUpgradeViews();
+            ClearOrganViews();
+            _isFirstRefresh = true;
             _runService = new RunService(Environment.TickCount, _rulesConfig);
             _shopService = _runService.Shop;
             _state = _runService.CreateNewRun();
+            InitializeOrganViews();
             ClearGrid();
             _resultText.text = "Choose a batch to spin. Space = 1x, 5 = 5x, 0 = 10x.";
             _payoutText.text = "Last payout: TL 0.00";
@@ -279,8 +284,25 @@ namespace SerenaysGambit
             {
                 _cashText = Require<TextMeshProUGUI>(root, "TopHud/CashText");
                 _targetText = Require<TextMeshProUGUI>(root, "TopHud/TargetText");
-                _rollsText = Require<TextMeshProUGUI>(root, "TopHud/RollsText");
-                _organsText = Require<TextMeshProUGUI>(root, "TopHud/OrgansText");
+                _rollsText = Require<TextMeshProUGUI>(root, "MainContent/RollsText");
+                _organsLayout = Require<RectTransform>(root, "MainContent/OrgansText");
+                var organsTextComp = _organsLayout.GetComponent<TextMeshProUGUI>();
+                if (organsTextComp != null)
+                {
+                    Destroy(organsTextComp);
+                }
+                var organsLayoutGroup = _organsLayout.GetComponent<HorizontalLayoutGroup>();
+                if (organsLayoutGroup == null)
+                {
+                    organsLayoutGroup = _organsLayout.gameObject.AddComponent<HorizontalLayoutGroup>();
+                }
+                organsLayoutGroup.spacing = 12f;
+                organsLayoutGroup.childAlignment = TextAnchor.MiddleLeft;
+                organsLayoutGroup.childForceExpandWidth = false;
+                organsLayoutGroup.childForceExpandHeight = false;
+                organsLayoutGroup.childControlWidth = false;
+                organsLayoutGroup.childControlHeight = false;
+
                 _ticketsText = Require<TextMeshProUGUI>(root, "TopHud/TicketsText");
                 _payoutText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/PayoutText");
                 _resultText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ResultText");
@@ -356,7 +378,7 @@ namespace SerenaysGambit
             _targetText.text = "Threshold " + _state.ThresholdLevel + "/" + _state.Config.ThresholdCount + ": " + MoneyFormatter.FormatTL(_state.CurrentTargetKurus);
             UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
             _rollsText.text = "Rolls: " + _state.RollsRemaining;
-            _organsText.text = "Organs: " + _state.RemainingOrgans + "/" + _state.Config.OrganCount + " (" + OrganStatusText() + ")";
+            RefreshOrganViews(!_isFirstRefresh);
             _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
             RefreshOwnedUpgradeViews();
@@ -487,6 +509,114 @@ namespace SerenaysGambit
             _ownedUpgradeViews.Clear();
         }
 
+        private void ClearOrganViews()
+        {
+            foreach (var view in _organViews)
+            {
+                if (view != null)
+                {
+                    Destroy(view.gameObject);
+                }
+            }
+            _organViews.Clear();
+        }
+
+        private void InitializeOrganViews()
+        {
+            ClearOrganViews();
+            if (_organsLayout == null || _ownedUpgradePrefab == null)
+            {
+                return;
+            }
+
+            int count = _state.Config.OrganCount;
+            for (int i = 0; i < count; i++)
+            {
+                int organNumber = i + 1;
+                var view = Instantiate(_ownedUpgradePrefab, _organsLayout);
+                _organViews.Add(view);
+
+                string organName = GameBalance.OrganNameForLoss(organNumber);
+
+                var countBadge = view.transform.Find("CountBadge");
+                if (countBadge != null)
+                {
+                    countBadge.gameObject.SetActive(false);
+                }
+
+                view.Bind(
+                    null,
+                    OrganFallbackLabel(organNumber),
+                    OrganFallbackColor(organNumber),
+                    1,
+                    organName,
+                    "Organ needed to survive.",
+                    "Healthy",
+                    _upgradeTooltip
+                );
+
+                var tooltipTrigger = view.GetComponent<UpgradeTooltipTrigger>();
+                if (tooltipTrigger != null)
+                {
+                    tooltipTrigger.Bind(_upgradeTooltip, organName, "Organ needed to survive.", "Status: Healthy");
+                }
+            }
+        }
+
+        private void RefreshOrganViews(bool playAnimation)
+        {
+            int losses = _state.OrganLosses;
+            for (int i = 0; i < _organViews.Count; i++)
+            {
+                int organNumber = i + 1;
+                var view = _organViews[i];
+                if (view == null)
+                {
+                    continue;
+                }
+
+                bool isLost = organNumber <= losses;
+                if (isLost)
+                {
+                    _organViews[i] = null;
+                    if (playAnimation)
+                    {
+                        view.PunchScaleAndFadeOut(0.5f);
+                    }
+                    else
+                    {
+                        Destroy(view.gameObject);
+                    }
+                }
+            }
+        }
+
+        private static string OrganFallbackLabel(int organNumber)
+        {
+            switch (organNumber)
+            {
+                case 1: return "M";
+                case 2: return "KC";
+                case 3: return "B";
+                case 4: return "AC";
+                case 5: return "K";
+                default: return "O";
+            }
+        }
+
+        private static Color OrganFallbackColor(int organNumber)
+        {
+            switch (organNumber)
+            {
+                case 1: return new Color(0.85f, 0.45f, 0.45f, 1f);
+                case 2: return new Color(0.5f, 0.2f, 0.2f, 1f);
+                case 3: return new Color(0.9f, 0.6f, 0.4f, 1f);
+                case 4: return new Color(0.4f, 0.7f, 0.8f, 1f);
+                case 5: return new Color(0.9f, 0.1f, 0.2f, 1f);
+                default: return new Color(0.6f, 0.6f, 0.6f, 1f);
+            }
+        }
+
         private string CurrentUpgradeEffect(ShopOfferKind kind)
         {
             switch (kind)
@@ -550,22 +680,7 @@ namespace SerenaysGambit
             }
         }
 
-        private string OrganStatusText()
-        {
-            var names = new[] { "Mide", "Karaciğer", "Bağırsak", "Akciğer", "Kalp" };
-            var output = string.Empty;
-            for (var index = 0; index < names.Length; index++)
-            {
-                if (index > 0)
-                {
-                    output += " | ";
-                }
 
-                output += index < _state.OrganLosses ? names[index] + " lost" : names[index];
-            }
-
-            return output;
-        }
 
         private string BuildResultSummary(SpinResult result)
         {
