@@ -28,6 +28,10 @@ namespace SerenaysGambit
         private readonly ReelScroller[] _reelScrollers = new ReelScroller[GameBalance.GridColumns];
         private bool _isSpinAnimating;
 
+        private const float FirstWinPulseDuration = 0.6f;
+        private const float MinimumWinPulseDuration = 0.08f;
+        private const float BatchStepSpeedIncrease = 0.35f;
+
         private TextMeshProUGUI _cashText;
         private TextMeshProUGUI _targetText;
         private TextMeshProUGUI _rollsText;
@@ -694,6 +698,7 @@ namespace SerenaysGambit
             public Image Image;
             public TextMeshProUGUI Text;
             public Vector3 OriginalScale;
+            public Vector3 OriginalTextScale;
             public Color OriginalColor;
             public Color OriginalTextColor;
         }
@@ -724,135 +729,249 @@ namespace SerenaysGambit
             Transform spawnParent = canvas != null ? canvas.transform : transform;
             BigInteger startCash = result.CashBeforeSpinKurus;
 
-            for (int i = 0; i < wins.Count; i++)
+            // Each batch unit has its own DOTween Sequence. The next sequence is created only
+            // after the previous coin flight finishes, while the highlight, counter, and coins
+            // within a sequence are joined and therefore play at the same time.
+            int batchSteps = Mathf.Max(1, result.Score.BatchFactor);
+
+            for (int winIndex = 0; winIndex < wins.Count; winIndex++)
             {
-                var win = wins[i];
-                float duration = Mathf.Max(0.12f, 0.6f / (1f + i * 0.4f));
+                var win = wins[winIndex];
+                var cells = CollectWinningCells(win);
 
-                // 1. Gather all cells involved in this payline
-                var positions = win.Payline.Positions;
-                var cells = new List<CellRef>();
-                for (int j = 0; j < positions.Length; j++)
-                {
-                    var pos = positions[j];
-                    var img = GetGridCellImage(pos.Row, pos.Column);
-                    var txt = GetGridCellText(pos.Row, pos.Column);
-                    if (img != null)
-                    {
-                        cells.Add(new CellRef
-                        {
-                            Image = img,
-                            Text = txt,
-                            OriginalScale = img.rectTransform.localScale,
-                            OriginalColor = img.color,
-                            OriginalTextColor = txt != null ? txt.color : Color.white
-                        });
-
-                        // Add a thick gold outline to show slot highlight
-                        var outline = img.gameObject.GetComponent<Outline>();
-                        if (outline == null)
-                        {
-                            outline = img.gameObject.AddComponent<Outline>();
-                        }
-                        outline.enabled = true;
-                        outline.effectColor = new Color(1f, 0.8f, 0f, 1f); // Gold outline
-                        outline.effectDistance = new Vector2(4f, 4f);
-                    }
-                }
-
-                _resultText.text = "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")";
-
-                // 3. Spawn coins for DOTween suck animation
-                var coins = new List<GameObject>();
-                int loops = result.Score.BatchFactor;
-                float pulseDuration = duration;
-                if (loops > 1)
-                {
-                    pulseDuration = Mathf.Max(0.08f, duration / 2f);
-                }
-                float totalDuration = loops * pulseDuration;
-
-                for (int j = 0; j < cells.Count; j++)
-                {
-                    var cell = cells[j];
-                    var coin = SpawnCoin(cell.Image.transform.position, spawnParent);
-                    if (coin != null)
-                    {
-                        coins.Add(coin);
-                        // Animate coin using DOTween
-                        Vector3 startPos = cell.Image.transform.position;
-                        // Random offset in screen coordinates for burst
-                        Vector3 burstOffset = new Vector3(UnityEngine.Random.Range(-40f, 40f), UnityEngine.Random.Range(-40f, 40f), 0f);
-                        Vector3 midPos = startPos + burstOffset;
-
-                        Sequence seq = DOTween.Sequence();
-                        seq.Append(coin.transform.DOMove(midPos, totalDuration * 0.3f).SetEase(Ease.OutQuad));
-                        seq.Join(coin.transform.DOPunchScale(Vector3.one * 0.2f, totalDuration * 0.3f));
-                        Vector3 targetPos = _thresholdBarRect != null ? _thresholdBarRect.position : _payoutText.transform.position;
-                        seq.Append(coin.transform.DOMove(targetPos, totalDuration * 0.7f).SetEase(Ease.InQuad));
-                        seq.Join(coin.transform.DOScale(Vector3.zero, totalDuration * 0.7f).SetEase(Ease.InQuad));
-                        seq.OnComplete(() => Destroy(coin));
-                    }
-                }
-
-                // 4. Run cell scale punch and text lerp over duration
+                BigInteger winStartPayout = accumulatedPayout;
                 BigInteger winPayout = win.FinalPayoutKurus;
-                BigInteger startPayout = accumulatedPayout;
-                accumulatedPayout += winPayout;
-
-                Color highlightColor = new Color(1f, 0.9f, 0.2f, 1f); // Gold glow
-
-                for (int loop = 0; loop < loops; loop++)
+                for (int batchStep = 0; batchStep < batchSteps; batchStep++)
                 {
-                    float elapsed = 0f;
-                    while (elapsed < pulseDuration)
+                    BigInteger stepStartPayout = PayoutAtBatchStep(winStartPayout, winPayout, batchStep, batchSteps);
+                    BigInteger stepEndPayout = PayoutAtBatchStep(winStartPayout, winPayout, batchStep + 1, batchSteps);
+                    float stepDuration = BatchRewardDuration(winIndex, batchStep, batchSteps);
+                    var spawnedCoins = new List<GameObject>();
+                    var stepSequence = CreateBatchRewardStep(
+                        result,
+                        win,
+                        cells,
+                        spawnParent,
+                        startCash,
+                        batchStep,
+                        batchSteps,
+                        stepStartPayout,
+                        stepEndPayout,
+                        stepDuration,
+                        spawnedCoins);
+
+                    stepSequence.OnKill(delegate
                     {
-                        elapsed += Time.deltaTime;
-                        float progress = Mathf.Clamp01(elapsed / pulseDuration);
+                        RestorePaylineVisuals(cells);
+                        DestroySpawnedCoins(spawnedCoins);
+                    });
+                    stepSequence.Play();
+                    yield return stepSequence.WaitForCompletion();
 
-                        // Scale factor: sine wave peak at 1.18f
-                        float scaleFactor = 1f + 0.18f * Mathf.Sin(progress * Mathf.PI);
-                        float colorBlend = Mathf.Sin(progress * Mathf.PI);
-
-                        for (int c = 0; c < cells.Count; c++)
-                        {
-                            var cell = cells[c];
-                            cell.Image.rectTransform.localScale = cell.OriginalScale * scaleFactor;
-                            cell.Image.color = Color.Lerp(cell.OriginalColor, highlightColor, colorBlend);
-
-                            if (cell.Text != null)
-                            {
-                                cell.Text.transform.localScale = Vector3.one * scaleFactor;
-                                cell.Text.color = Color.Lerp(cell.OriginalTextColor, new Color(1f, 0.3f, 0.1f, 1f), colorBlend);
-                            }
-                        }
-
-                        // Lerp display payout based on global progress
-                        float globalProgress = Mathf.Clamp01(((float)loop + progress) / loops);
-                        double doubleProgress = (double)globalProgress;
-                        BigInteger currentDisplay = startPayout + (BigInteger)((double)(accumulatedPayout - startPayout) * doubleProgress);
-                        _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
-                        UpdateThresholdBar(
-                            startCash + currentDisplay,
-                            result.TargetBeforeSpinKurus,
-                            result.ThresholdLevelBeforeSpin);
-
-                        yield return null;
-                    }
+                    // This also covers projects whose DOTween settings disable auto-kill.
+                    RestorePaylineVisuals(cells);
+                    DestroySpawnedCoins(spawnedCoins);
                 }
 
-                // 5. Restore original scale & color of cells
-                for (int c = 0; c < cells.Count; c++)
+                accumulatedPayout += winPayout;
+            }
+
+            // Finally, snap payout text and show final results summary
+            _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+            _resultText.text = BuildResultSummary(result);
+            UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
+        }
+
+        private List<CellRef> CollectWinningCells(PaylineWin win)
+        {
+            var cells = new List<CellRef>();
+            var positions = win.Payline.Positions;
+            for (int index = 0; index < positions.Length; index++)
+            {
+                var position = positions[index];
+                var image = GetGridCellImage(position.Row, position.Column);
+                var text = GetGridCellText(position.Row, position.Column);
+                if (image == null)
                 {
-                    var cell = cells[c];
+                    continue;
+                }
+
+                cells.Add(new CellRef
+                {
+                    Image = image,
+                    Text = text,
+                    OriginalScale = image.rectTransform.localScale,
+                    OriginalTextScale = text != null ? text.transform.localScale : Vector3.one,
+                    OriginalColor = image.color,
+                    OriginalTextColor = text != null ? text.color : Color.white
+                });
+            }
+
+            return cells;
+        }
+
+        private Sequence CreateBatchRewardStep(
+            SpinResult result,
+            PaylineWin win,
+            List<CellRef> cells,
+            Transform spawnParent,
+            BigInteger startCash,
+            int batchStep,
+            int batchSteps,
+            BigInteger stepStartPayout,
+            BigInteger stepEndPayout,
+            float duration,
+            List<GameObject> spawnedCoins)
+        {
+            var step = DOTween.Sequence();
+            Color highlightColor = new Color(1f, 0.9f, 0.2f, 1f);
+
+            step.AppendCallback(delegate
+            {
+                BeginPaylineHighlight(cells);
+                _resultText.text = "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")"
+                    + (batchSteps > 1 ? " — batch " + (batchStep + 1) + "/" + batchSteps : string.Empty);
+                UpdateBatchPayout(result, startCash, stepStartPayout, stepEndPayout, 0f);
+            });
+
+            step.Append(DOTween.To(
+                () => 0f,
+                progress => ApplyPaylinePulse(cells, progress, highlightColor),
+                1f,
+                duration).SetEase(Ease.Linear));
+
+            step.Join(DOTween.To(
+                () => 0f,
+                progress => UpdateBatchPayout(result, startCash, stepStartPayout, stepEndPayout, progress),
+                1f,
+                duration).SetEase(Ease.Linear).OnComplete(delegate
+                {
+                    UpdateBatchPayout(result, startCash, stepStartPayout, stepEndPayout, 1f);
+                }));
+
+            for (int cellIndex = 0; cellIndex < cells.Count; cellIndex++)
+            {
+                var coinFlight = CreateCoinFlight(cells[cellIndex], spawnParent, duration, spawnedCoins);
+                if (coinFlight != null)
+                {
+                    step.Join(coinFlight);
+                }
+            }
+
+            step.AppendCallback(delegate { RestorePaylineVisuals(cells); });
+            return step;
+        }
+
+        private Sequence CreateCoinFlight(CellRef cell, Transform spawnParent, float duration, List<GameObject> spawnedCoins)
+        {
+            var coin = SpawnCoin(cell.Image.transform.position, spawnParent);
+            if (coin == null)
+            {
+                return null;
+            }
+
+            spawnedCoins.Add(coin);
+            Vector3 startPosition = coin.transform.position;
+            Vector3 startScale = coin.transform.localScale;
+            Vector3 burstOffset = new Vector3(UnityEngine.Random.Range(-40f, 40f), UnityEngine.Random.Range(-40f, 40f), 0f);
+            Vector3 burstPosition = startPosition + burstOffset;
+            Vector3 targetPosition = _thresholdBarRect != null ? _thresholdBarRect.position : _payoutText.transform.position;
+            float burstDuration = Mathf.Max(0.03f, duration * 0.3f);
+            float flightDuration = duration - burstDuration;
+
+            coin.SetActive(false);
+            var flight = DOTween.Sequence();
+            flight.AppendCallback(delegate
+            {
+                if (coin == null)
+                {
+                    return;
+                }
+
+                coin.transform.position = startPosition;
+                coin.transform.localScale = startScale;
+                coin.SetActive(true);
+            });
+            flight.Append(coin.transform.DOMove(burstPosition, burstDuration).SetEase(Ease.OutQuad));
+            flight.Join(coin.transform.DOPunchScale(Vector3.one * 0.2f, burstDuration));
+            flight.Append(coin.transform.DOMove(targetPosition, flightDuration).SetEase(Ease.InQuad));
+            flight.Join(coin.transform.DOScale(Vector3.zero, flightDuration).SetEase(Ease.InQuad));
+            flight.OnComplete(delegate
+            {
+                if (coin != null)
+                {
+                    Destroy(coin);
+                }
+            });
+            return flight;
+        }
+
+        private static float BatchRewardDuration(int winIndex, int batchStep, int batchSteps)
+        {
+            float winDuration = FirstWinPulseDuration / (1f + winIndex * 0.4f);
+            float firstBatchStepDuration = batchSteps > 1 ? winDuration * 0.5f : winDuration;
+            return Mathf.Max(MinimumWinPulseDuration, firstBatchStepDuration / (1f + batchStep * BatchStepSpeedIncrease));
+        }
+
+        private static BigInteger PayoutAtBatchStep(BigInteger winStartPayout, BigInteger winPayout, int completedBatchSteps, int totalBatchSteps)
+        {
+            return winStartPayout + winPayout * completedBatchSteps / totalBatchSteps;
+        }
+
+        private void BeginPaylineHighlight(List<CellRef> cells)
+        {
+            for (int index = 0; index < cells.Count; index++)
+            {
+                var image = cells[index].Image;
+                if (image == null)
+                {
+                    continue;
+                }
+
+                var outline = image.GetComponent<Outline>();
+                if (outline == null)
+                {
+                    outline = image.gameObject.AddComponent<Outline>();
+                }
+
+                outline.enabled = true;
+                outline.effectColor = new Color(1f, 0.8f, 0f, 1f);
+                outline.effectDistance = new Vector2(4f, 4f);
+            }
+        }
+
+        private static void ApplyPaylinePulse(List<CellRef> cells, float progress, Color highlightColor)
+        {
+            float pulse = Mathf.Sin(Mathf.Clamp01(progress) * Mathf.PI);
+            float scaleFactor = 1f + 0.18f * pulse;
+            Color textHighlightColor = new Color(1f, 0.3f, 0.1f, 1f);
+
+            for (int index = 0; index < cells.Count; index++)
+            {
+                var cell = cells[index];
+                if (cell.Image != null)
+                {
+                    cell.Image.rectTransform.localScale = cell.OriginalScale * scaleFactor;
+                    cell.Image.color = Color.Lerp(cell.OriginalColor, highlightColor, pulse);
+                }
+
+                if (cell.Text != null)
+                {
+                    cell.Text.transform.localScale = cell.OriginalTextScale * scaleFactor;
+                    cell.Text.color = Color.Lerp(cell.OriginalTextColor, textHighlightColor, pulse);
+                }
+            }
+        }
+
+        private static void RestorePaylineVisuals(List<CellRef> cells)
+        {
+            for (int index = 0; index < cells.Count; index++)
+            {
+                var cell = cells[index];
+                if (cell.Image != null)
+                {
                     cell.Image.rectTransform.localScale = cell.OriginalScale;
                     cell.Image.color = cell.OriginalColor;
-
-                    if (cell.Text != null)
-                    {
-                        cell.Text.transform.localScale = Vector3.one;
-                        cell.Text.color = cell.OriginalTextColor;
-                    }
 
                     var outline = cell.Image.GetComponent<Outline>();
                     if (outline != null)
@@ -861,20 +980,39 @@ namespace SerenaysGambit
                     }
                 }
 
-                // Ensure final coins are cleaned up if any sequence was interrupted
-                for (int c = 0; c < coins.Count; c++)
+                if (cell.Text != null)
                 {
-                    if (coins[c] != null)
-                    {
-                        Destroy(coins[c]);
-                    }
+                    cell.Text.transform.localScale = cell.OriginalTextScale;
+                    cell.Text.color = cell.OriginalTextColor;
                 }
             }
+        }
 
-            // Finally, snap payout text and show final results summary
-            _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
-            _resultText.text = BuildResultSummary(result);
-            UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
+        private static void DestroySpawnedCoins(List<GameObject> spawnedCoins)
+        {
+            for (int index = 0; index < spawnedCoins.Count; index++)
+            {
+                if (spawnedCoins[index] != null)
+                {
+                    Destroy(spawnedCoins[index]);
+                }
+            }
+        }
+
+        private void UpdateBatchPayout(
+            SpinResult result,
+            BigInteger startCash,
+            BigInteger stepStartPayout,
+            BigInteger stepEndPayout,
+            float progress)
+        {
+            float clampedProgress = Mathf.Clamp01(progress);
+            BigInteger currentDisplay = stepStartPayout + (BigInteger)((double)(stepEndPayout - stepStartPayout) * clampedProgress);
+            _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+            UpdateThresholdBar(
+                startCash + currentDisplay,
+                result.TargetBeforeSpinKurus,
+                result.ThresholdLevelBeforeSpin);
         }
 
         private GameObject SpawnCoin(Vector3 spawnPosition, Transform parent)
