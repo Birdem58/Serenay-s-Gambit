@@ -27,6 +27,9 @@ namespace SerenaysGambit
 
         private readonly ReelScroller[] _reelScrollers = new ReelScroller[GameBalance.GridColumns];
         private bool _isSpinAnimating;
+        private RectTransform _mainContent;
+        private Vector3 _originalMainContentPosition;
+        private bool _hasOriginalMainContentPosition;
 
         private const float FirstWinPulseDuration = 0.6f;
         private const float MinimumWinPulseDuration = 0.025f;
@@ -77,6 +80,7 @@ namespace SerenaysGambit
 
         private void Start()
         {
+
             _symbolDefinitions = Resources.LoadAll<SymbolDefinition>("SerenaysGambit/Data/Symbols");
             _reelDefinitions = Resources.LoadAll<ReelDefinition>("SerenaysGambit/Data/Reels");
             _shopItemDefinitions = Resources.LoadAll<ShopItemDefinition>("SerenaysGambit/Data/ShopItems");
@@ -98,6 +102,22 @@ namespace SerenaysGambit
             var canvas = GameObject.Find("GameCanvas");
             if (canvas != null)
             {
+                var mainCamera = Camera.main;
+                var canvasComp = canvas.GetComponent<Canvas>();
+                if (canvasComp != null)
+                {
+                    canvasComp.renderMode = RenderMode.ScreenSpaceCamera;
+                    canvasComp.worldCamera = mainCamera;
+                }
+
+                var mainContentTrans = canvas.transform.Find("MainContent");
+                if (mainContentTrans != null)
+                {
+                    _mainContent = mainContentTrans.GetComponent<RectTransform>();
+                    _originalMainContentPosition = _mainContent.anchoredPosition;
+                    _hasOriginalMainContentPosition = true;
+                }
+
                 for (var column = 0; column < GameBalance.GridColumns; column++)
                 {
                     var reelTransform = canvas.transform.Find("MainContent/SlotMachinePanel/SlotGrid/Reel" + (column + 1));
@@ -131,6 +151,44 @@ namespace SerenaysGambit
             else if (Input.GetKeyDown(KeyCode.Alpha0))
             {
                 Spin(10);
+            }
+        }
+
+        private void ShakeMainContent(Vector3 punchDirection, float duration, int vibrato, float elasticity)
+        {
+            if (_mainContent == null) return;
+
+            _mainContent.DOComplete();
+            if (_hasOriginalMainContentPosition)
+            {
+                _mainContent.anchoredPosition = _originalMainContentPosition;
+            }
+
+            _mainContent.DOPunchPosition(punchDirection, duration, vibrato, elasticity);
+        }
+
+        private void PunchDownCameraShake()
+        {
+            Vector3 punch = new Vector3(0f, -40f, 0f);
+            ShakeMainContent(punch, 0.35f, 12, 1f);
+        }
+
+        private void PunchUpCameraShake(int reelIndex)
+        {
+            float intensity = 15f + reelIndex * 15f;
+            Vector3 punch = new Vector3(0f, intensity, 0f);
+            ShakeMainContent(punch, 0.25f, 10, 1f);
+        }
+
+        private void OnDestroy()
+        {
+            if (_mainContent != null)
+            {
+                _mainContent.DOComplete();
+                if (_hasOriginalMainContentPosition)
+                {
+                    _mainContent.anchoredPosition = _originalMainContentPosition;
+                }
             }
         }
 
@@ -183,6 +241,8 @@ namespace SerenaysGambit
                 _offerButtons[i].interactable = false;
             }
 
+            PunchDownCameraShake();
+
             float spinSpeed = 1800f;
             for (var col = 0; col < GameBalance.GridColumns; col++)
             {
@@ -204,7 +264,10 @@ namespace SerenaysGambit
 
                 if (_reelScrollers[capturedCol] != null)
                 {
-                    _reelScrollers[capturedCol].StopSpin(stopIndex, stopDurations[capturedCol], null);
+                    _reelScrollers[capturedCol].StopSpin(stopIndex, stopDurations[capturedCol], delegate
+                    {
+                        PunchUpCameraShake(capturedCol);
+                    });
                 }
             }
 
