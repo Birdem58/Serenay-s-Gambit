@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46010a659df1949b7a75f9680a04278d, type: 3}
   m_Name: Joker
   m_EditorClassIdentifier: 
-  _symbol: 2
+  _symbol: 5
   _displayName: Joker
   _startingValue: 0

@@ -172,6 +172,12 @@ namespace SerenaysGambit
             }
         }
 
+        public void UpdateStrip(SymbolKind[] newStrip)
+        {
+            _strip = (SymbolKind[])newStrip.Clone();
+            UpdateCellVisuals();
+        }
+
         public void UpdateCellVisuals()
         {
             if (_strip == null || _strip.Length == 0) return;

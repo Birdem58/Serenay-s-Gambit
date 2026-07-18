@@ -24,6 +24,9 @@ namespace SerenaysGambit
         private GameRulesConfig _rulesConfig;
         private readonly Dictionary<ShopOfferKind, ShopItemDefinition> _shopItemDefinitionsByKind = new Dictionary<ShopOfferKind, ShopItemDefinition>();
         private readonly Dictionary<ShopOfferKind, OwnedUpgradeView> _ownedUpgradeViews = new Dictionary<ShopOfferKind, OwnedUpgradeView>();
+        private readonly Dictionary<string, OwnedUpgradeView> _ownedGambitViews = new Dictionary<string, OwnedUpgradeView>();
+        private RectTransform _ownedGambitsLayout;
+        private GameObject _gambitOverlay;
 
         private readonly ReelScroller[] _reelScrollers = new ReelScroller[GameBalance.GridColumns];
         private bool _isSpinAnimating;
@@ -142,6 +145,15 @@ namespace SerenaysGambit
         {
             if (_state == null || _state.Phase != RunPhase.Playing || _isSpinAnimating)
             {
+                return;
+            }
+
+            if (_state.Modifiers.BatchTenGambitCount > 0)
+            {
+                if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Alpha0))
+                {
+                    Spin(10);
+                }
                 return;
             }
 
@@ -350,6 +362,14 @@ namespace SerenaysGambit
 
             _isSpinAnimating = false;
 
+            if (result.JokerLostOnLeftReel)
+            {
+                if (_reelScrollers[0] != null)
+                {
+                    _reelScrollers[0].UpdateStrip(_rulesConfig.ReelStripAt(0));
+                }
+            }
+
             if (_state.Phase == RunPhase.GameOver)
             {
                 RefreshEndScreenStats();
@@ -359,6 +379,10 @@ namespace SerenaysGambit
             {
                 RefreshEndScreenStats();
                 _victoryOverlay.SetActive(true);
+            }
+            else if (result.ThresholdCleared)
+            {
+                ShowGambitSelectionOverlay();
             }
 
             RefreshView();
@@ -479,6 +503,61 @@ namespace SerenaysGambit
                 _offerButtons[offerIndex].onClick.AddListener(delegate { BuyOffer(capturedIndex); });
             }
 
+            // Create OwnedGambitsLayout and OwnedGambitsHeading by shifting existing components
+            try
+            {
+                var upgradesHeading = root.Find("MainContent/SerenayShopPanel/OwnedUpgradesHeading")?.GetComponent<RectTransform>();
+                var upgradesLayout = root.Find("MainContent/SerenayShopPanel/OwnedUpgradesLayout")?.GetComponent<RectTransform>();
+
+                if (upgradesHeading != null && upgradesLayout != null)
+                {
+                    // Shift upgrades up to make room
+                    upgradesHeading.anchorMin = new Vector2(0.05f, 0.38f);
+                    upgradesHeading.anchorMax = new Vector2(0.95f, 0.42f);
+                    upgradesHeading.offsetMin = Vector2.zero;
+                    upgradesHeading.offsetMax = Vector2.zero;
+
+                    upgradesLayout.anchorMin = new Vector2(0.05f, 0.24f);
+                    upgradesLayout.anchorMax = new Vector2(0.95f, 0.38f);
+                    upgradesLayout.offsetMin = Vector2.zero;
+                    upgradesLayout.offsetMax = Vector2.zero;
+
+                    // Create OwnedGambitsHeading
+                    var gambitsHeadingObj = Instantiate(upgradesHeading.gameObject, upgradesHeading.parent);
+                    gambitsHeadingObj.name = "OwnedGambitsHeading";
+                    var gambitsHeadingRect = gambitsHeadingObj.GetComponent<RectTransform>();
+                    gambitsHeadingRect.anchorMin = new Vector2(0.05f, 0.19f);
+                    gambitsHeadingRect.anchorMax = new Vector2(0.95f, 0.23f);
+                    gambitsHeadingRect.offsetMin = Vector2.zero;
+                    gambitsHeadingRect.offsetMax = Vector2.zero;
+
+                    var headingText = gambitsHeadingObj.GetComponent<TextMeshProUGUI>();
+                    if (headingText != null)
+                    {
+                        headingText.text = "ACTIVE GAMBITS";
+                    }
+
+                    // Create OwnedGambitsLayout
+                    var gambitsLayoutObj = Instantiate(upgradesLayout.gameObject, upgradesLayout.parent);
+                    gambitsLayoutObj.name = "OwnedGambitsLayout";
+                    
+                    for (int i = gambitsLayoutObj.transform.childCount - 1; i >= 0; i--)
+                    {
+                        Destroy(gambitsLayoutObj.transform.GetChild(i).gameObject);
+                    }
+
+                    _ownedGambitsLayout = gambitsLayoutObj.GetComponent<RectTransform>();
+                    _ownedGambitsLayout.anchorMin = new Vector2(0.05f, 0.05f);
+                    _ownedGambitsLayout.anchorMax = new Vector2(0.95f, 0.19f);
+                    _ownedGambitsLayout.offsetMin = Vector2.zero;
+                    _ownedGambitsLayout.offsetMax = Vector2.zero;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("Could not setup dynamic Active Gambits layout: " + ex.Message);
+            }
+
             return true;
         }
 
@@ -493,13 +572,27 @@ namespace SerenaysGambit
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
             RefreshOwnedUpgradeViews();
 
-            _spin1xButton.image.color = _currentBatchFactor == 1 ? _buttonSelectedColor : _buttonNormalColor;
-            _spin5xButton.image.color = _currentBatchFactor == 5 ? _buttonSelectedColor : _buttonNormalColor;
-            _spin10xButton.image.color = _currentBatchFactor == 10 ? _buttonSelectedColor : _buttonNormalColor;
+            if (_state.Modifiers.BatchTenGambitCount > 0)
+            {
+                _currentBatchFactor = 10;
+                _spin1xButton.image.color = _buttonNormalColor;
+                _spin5xButton.image.color = _buttonNormalColor;
+                _spin10xButton.image.color = _buttonSelectedColor;
 
-            _spin1xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
-            _spin5xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
-            _spin10xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+                _spin1xButton.interactable = false;
+                _spin5xButton.interactable = false;
+                _spin10xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+            }
+            else
+            {
+                _spin1xButton.image.color = _currentBatchFactor == 1 ? _buttonSelectedColor : _buttonNormalColor;
+                _spin5xButton.image.color = _currentBatchFactor == 5 ? _buttonSelectedColor : _buttonNormalColor;
+                _spin10xButton.image.color = _currentBatchFactor == 10 ? _buttonSelectedColor : _buttonNormalColor;
+
+                _spin1xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+                _spin5xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+                _spin10xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+            }
 
             if (_lever != null)
             {
@@ -598,6 +691,47 @@ namespace SerenaysGambit
                     Destroy(view.gameObject);
                 }
             }
+
+            // Refresh Gambits in their layout
+            if (_ownedGambitsLayout != null)
+            {
+                RefreshGambitView("StrawberryGambit", _state.Modifiers.StrawberryGambitCount, "Strawberry Gambit", "Strawberry wins: x10 per Strawberry symbol.\nSacrifice: if no Strawberry wins, -25% output per Strawberry on grid.", "SG", new Color(0.85f, 0.2f, 0.3f, 1f));
+                RefreshGambitView("BatchTenGambit", _state.Modifiers.BatchTenGambitCount, "Tenfold Batch", "Forced to roll at 10x batch factor.\nBonus: gain 10x the roll amount.", "TB", new Color(0.2f, 0.6f, 0.8f, 1f));
+                RefreshGambitView("Joker1000xGambit", _state.Modifiers.Joker1000xGambitCount, "Joker 1000x", "Score win with Joker on left reel for 1000x roll output.\nRisk: 15% chance to lose left reel Joker.", "J1K", new Color(0.7f, 0.3f, 0.85f, 1f));
+                RefreshGambitView("AppleDecayGambit", _state.Modifiers.AppleDecayGambitCount, "Apple Decay", "Apple wins: pay 5x.\nSacrifice: every spin without an Apple reduces Apple value by 1.", "AD", new Color(0.95f, 0.65f, 0.1f, 1f));
+            }
+        }
+
+        private void RefreshGambitView(string key, int count, string title, string description, string shortLabel, Color color)
+        {
+            OwnedUpgradeView view;
+            _ownedGambitViews.TryGetValue(key, out view);
+
+            if (count <= 0)
+            {
+                if (view != null)
+                {
+                    _ownedGambitViews.Remove(key);
+                    Destroy(view.gameObject);
+                }
+                return;
+            }
+
+            if (view == null)
+            {
+                view = Instantiate(_ownedUpgradePrefab, _ownedGambitsLayout);
+                _ownedGambitViews[key] = view;
+            }
+
+            view.Bind(
+                null,
+                shortLabel,
+                color,
+                count,
+                title,
+                description,
+                "Active Stack: x" + count,
+                _upgradeTooltip);
         }
 
         private void ClearOwnedUpgradeViews()
@@ -615,8 +749,237 @@ namespace SerenaysGambit
                     Destroy(pair.Value.gameObject);
                 }
             }
-
             _ownedUpgradeViews.Clear();
+
+            foreach (var pair in _ownedGambitViews)
+            {
+                if (pair.Value != null)
+                {
+                    Destroy(pair.Value.gameObject);
+                }
+            }
+            _ownedGambitViews.Clear();
+        }
+
+        private void ShowGambitSelectionOverlay()
+        {
+            if (_gambitOverlay != null)
+            {
+                Destroy(_gambitOverlay);
+            }
+
+            var canvas = GameObject.Find("GameCanvas");
+            if (canvas == null) return;
+
+            _isSpinAnimating = true; // Lock controls while overlay is open
+
+            _gambitOverlay = new GameObject("GambitOverlay", typeof(RectTransform));
+            _gambitOverlay.transform.SetParent(canvas.transform, false);
+            var rect = _gambitOverlay.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var bgImage = _gambitOverlay.AddComponent<Image>();
+            bgImage.color = new Color(0.04f, 0.04f, 0.08f, 0.95f);
+
+            // Title
+            var titleObj = new GameObject("Title", typeof(RectTransform));
+            titleObj.transform.SetParent(_gambitOverlay.transform, false);
+            var titleText = titleObj.AddComponent<TextMeshProUGUI>();
+            titleText.text = "SELECT A GAMBIT";
+            titleText.fontSize = 46;
+            titleText.fontStyle = FontStyles.Bold;
+            titleText.color = new Color(1f, 0.82f, 0f, 1f); // Gold
+            titleText.alignment = TextAlignmentOptions.Center;
+            var titleRect = titleObj.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0f, 0.8f);
+            titleRect.anchorMax = new Vector2(1f, 0.95f);
+            titleRect.offsetMin = Vector2.zero;
+            titleRect.offsetMax = Vector2.zero;
+
+            // Subtitle
+            var subObj = new GameObject("Subtitle", typeof(RectTransform));
+            subObj.transform.SetParent(_gambitOverlay.transform, false);
+            var subText = subObj.AddComponent<TextMeshProUGUI>();
+            subText.text = "Choose a gamble to carry forward. They will stack.";
+            subText.fontSize = 20;
+            subText.alignment = TextAlignmentOptions.Center;
+            subText.color = new Color(0.7f, 0.8f, 0.9f, 1f);
+            var subRect = subObj.GetComponent<RectTransform>();
+            subRect.anchorMin = new Vector2(0f, 0.75f);
+            subRect.anchorMax = new Vector2(1f, 0.8f);
+            subRect.offsetMin = Vector2.zero;
+            subRect.offsetMax = Vector2.zero;
+
+            // Panel for Cards
+            var cardPanelObj = new GameObject("CardPanel", typeof(RectTransform));
+            cardPanelObj.transform.SetParent(_gambitOverlay.transform, false);
+            var cardPanelRect = cardPanelObj.GetComponent<RectTransform>();
+            cardPanelRect.anchorMin = new Vector2(0.12f, 0.15f);
+            cardPanelRect.anchorMax = new Vector2(0.88f, 0.7f);
+            cardPanelRect.offsetMin = Vector2.zero;
+            cardPanelRect.offsetMax = Vector2.zero;
+
+            var layout = cardPanelObj.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 30f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+
+            // Pick 3 random gambits out of 4
+            var pool = new List<int> { 1, 2, 3, 4 };
+            // Simple Fisher-Yates shuffle
+            for (int i = 0; i < pool.Count; i++)
+            {
+                int temp = pool[i];
+                int rIdx = UnityEngine.Random.Range(i, pool.Count);
+                pool[i] = pool[rIdx];
+                pool[rIdx] = temp;
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                int option = pool[i];
+                if (option == 1)
+                {
+                    CreateGambitCard(cardPanelObj.transform, 
+                        "Strawberry Gambit", 
+                        "Strawberry wins: x10 per Strawberry symbol.\n\n<color=#ff4444>Sacrifice:</color>\nIf no Strawberry wins, -25% total output per Strawberry symbol on the grid.",
+                        new Color(0.85f, 0.2f, 0.3f, 1f),
+                        delegate { SelectGambit(1); });
+                }
+                else if (option == 2)
+                {
+                    CreateGambitCard(cardPanelObj.transform, 
+                        "Tenfold Batch", 
+                        "Forced to roll at 10x batch factor.\n\n<color=#55ff55>Bonus:</color>\nImmediately receive 10 times the roll amount.",
+                        new Color(0.2f, 0.6f, 0.8f, 1f),
+                        delegate { SelectGambit(2); });
+                }
+                else if (option == 3)
+                {
+                    CreateGambitCard(cardPanelObj.transform, 
+                        "Joker's 1000x", 
+                        "Score win with Joker on left reel for a 1000x multiplier.\n\n<color=#ffaa00>Risk:</color>\n15% chance to lose the Joker on the left reel strip (replaced by random fruit).",
+                        new Color(0.7f, 0.3f, 0.85f, 1f),
+                        delegate { SelectGambit(3); });
+                }
+                else if (option == 4)
+                {
+                    CreateGambitCard(cardPanelObj.transform, 
+                        "Apple Decay", 
+                        "Apple wins pay 5x multiplier.\n\n<color=#ff6600>Sacrifice:</color>\nEvery spin that does not contain an Apple reduces value of Apples by 1.",
+                        new Color(0.95f, 0.65f, 0.1f, 1f),
+                        delegate { SelectGambit(4); });
+                }
+            }
+
+            PrepareDefaultFonts();
+        }
+
+        private void CreateGambitCard(Transform parent, string title, string description, Color cardColor, Action onClickAction)
+        {
+            var cardObj = new GameObject(title + "_Card", typeof(RectTransform));
+            cardObj.transform.SetParent(parent, false);
+
+            var cardImage = cardObj.AddComponent<Image>();
+            cardImage.color = new Color(0.08f, 0.08f, 0.12f, 1f);
+
+            var outlineObj = new GameObject("Outline", typeof(RectTransform));
+            outlineObj.transform.SetParent(cardObj.transform, false);
+            var outlineRect = outlineObj.GetComponent<RectTransform>();
+            outlineRect.anchorMin = Vector2.zero;
+            outlineRect.anchorMax = Vector2.one;
+            outlineRect.offsetMin = new Vector2(4f, 4f);
+            outlineRect.offsetMax = new Vector2(-4f, -4f);
+            var outlineImage = outlineObj.AddComponent<Image>();
+            outlineImage.color = cardColor * 0.35f;
+
+            var button = cardObj.AddComponent<Button>();
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.1f, 1.1f, 1.1f, 1f);
+            colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+            button.colors = colors;
+
+            button.onClick.AddListener(delegate
+            {
+                cardObj.transform.DOPunchScale(Vector3.one * -0.05f, 0.15f, 0, 0f).OnComplete(delegate
+                {
+                    onClickAction();
+                });
+            });
+
+            var contentObj = new GameObject("Content", typeof(RectTransform));
+            contentObj.transform.SetParent(outlineObj.transform, false);
+            var contentRect = contentObj.GetComponent<RectTransform>();
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = new Vector2(15f, 15f);
+            contentRect.offsetMax = new Vector2(-15f, -15f);
+
+            var vLayout = contentObj.AddComponent<VerticalLayoutGroup>();
+            vLayout.spacing = 15f;
+            vLayout.childControlWidth = true;
+            vLayout.childControlHeight = true;
+            vLayout.childForceExpandWidth = true;
+            vLayout.childForceExpandHeight = false;
+
+            var titleTextObj = new GameObject("Title", typeof(RectTransform));
+            titleTextObj.transform.SetParent(contentObj.transform, false);
+            var tText = titleTextObj.AddComponent<TextMeshProUGUI>();
+            tText.text = title;
+            tText.fontSize = 24;
+            tText.fontStyle = FontStyles.Bold;
+            tText.color = cardColor;
+            tText.alignment = TextAlignmentOptions.Center;
+
+            var descTextObj = new GameObject("Description", typeof(RectTransform));
+            descTextObj.transform.SetParent(contentObj.transform, false);
+            var dText = descTextObj.AddComponent<TextMeshProUGUI>();
+            dText.text = description;
+            dText.fontSize = 16;
+            dText.color = new Color(0.85f, 0.85f, 0.9f, 1f);
+            dText.alignment = TextAlignmentOptions.Center;
+        }
+
+        private void SelectGambit(int option)
+        {
+            if (_state == null) return;
+
+            if (option == 1)
+            {
+                _state.Modifiers.StrawberryGambitCount++;
+                _resultText.text = "Accepted: Strawberry Gambit!";
+            }
+            else if (option == 2)
+            {
+                _state.Modifiers.BatchTenGambitCount++;
+                _state.RollsRemaining *= 10;
+                _resultText.text = "Accepted: Tenfold Batch!";
+            }
+            else if (option == 3)
+            {
+                _state.Modifiers.Joker1000xGambitCount++;
+                _resultText.text = "Accepted: Joker's 1000x!";
+            }
+            else if (option == 4)
+            {
+                _state.Modifiers.AppleDecayGambitCount++;
+                _resultText.text = "Accepted: Apple Decay!";
+            }
+
+            if (_gambitOverlay != null)
+            {
+                Destroy(_gambitOverlay);
+                _gambitOverlay = null;
+            }
+
+            _isSpinAnimating = false;
+            RefreshView();
         }
 
         private void ClearOrganViews()

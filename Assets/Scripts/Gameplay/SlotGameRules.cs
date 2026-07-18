@@ -272,6 +272,14 @@ namespace SerenaysGambit
             return _reelStrips[column];
         }
 
+        public void ReplaceSymbolOnStrip(int column, int index, SymbolKind newSymbol)
+        {
+            if (column >= 0 && column < _reelStrips.Length && index >= 0 && index < _reelStrips[column].Length)
+            {
+                _reelStrips[column][index] = newSymbol;
+            }
+        }
+
         public BigInteger TargetKurus(int level)
         {
             if (level < 1 || level > ThresholdCount)
@@ -345,6 +353,11 @@ namespace SerenaysGambit
         public int VerticalMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.Vertical); } }
         public int CrissCrossMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.CrissCross); } }
 
+        public int StrawberryGambitCount { get; set; }
+        public int BatchTenGambitCount { get; set; }
+        public int Joker1000xGambitCount { get; set; }
+        public int AppleDecayGambitCount { get; set; }
+
         public BigInteger BaseOutputMultiplier
         {
             get { return BaseOutputMultiplierForIndex(BaseOutputMultiplierIndex); }
@@ -382,7 +395,18 @@ namespace SerenaysGambit
 
         public int StartingRolls
         {
-            get { return (_config.BaseRolls * BaseRollMultiplier) + TemporaryFreeSpins; }
+            get 
+            {
+                int baseRolls = (_config.BaseRolls * BaseRollMultiplier) + TemporaryFreeSpins;
+                if (BatchTenGambitCount > 0)
+                {
+                    for (int i = 0; i < BatchTenGambitCount; i++)
+                    {
+                        baseRolls *= 10;
+                    }
+                }
+                return baseRolls;
+            }
         }
 
         public int SymbolValue(SymbolKind symbol)
@@ -396,6 +420,14 @@ namespace SerenaysGambit
             if (_symbolValues.ContainsKey(symbol))
             {
                 _symbolValues[symbol]++;
+            }
+        }
+
+        public void DecayApple(int amount)
+        {
+            if (_symbolValues.ContainsKey(SymbolKind.Apple))
+            {
+                _symbolValues[SymbolKind.Apple] = Math.Max(1, _symbolValues[SymbolKind.Apple] - amount);
             }
         }
 
@@ -689,6 +721,8 @@ namespace SerenaysGambit
         public BigInteger CashBeforeSpinKurus { get; internal set; }
         public BigInteger TargetBeforeSpinKurus { get; internal set; }
         public int ThresholdLevelBeforeSpin { get; internal set; }
+        public bool JokerLostOnLeftReel { get; internal set; }
+        public bool AppleDecayed { get; internal set; }
     }
 
     public static class MatchResolver
@@ -818,7 +852,125 @@ namespace SerenaysGambit
                     modifiers.BaseOutputMultiplier,
                     batchFactor,
                     win.MatchCountMultiplier);
+
+                if (modifiers.AppleDecayGambitCount > 0 && win.ResolvedSymbol == SymbolKind.Apple)
+                {
+                    BigInteger appleMult = BigInteger.One;
+                    for (int i = 0; i < modifiers.AppleDecayGambitCount; i++)
+                    {
+                        appleMult *= 5;
+                    }
+                    win.FinalPayoutKurus *= appleMult;
+                }
+
                 finalPayout += win.FinalPayoutKurus;
+            }
+
+            BigInteger overallMultiplier = BigInteger.One;
+            if (modifiers.Joker1000xGambitCount > 0)
+            {
+                bool scoredJokerOnLeftReel = false;
+                foreach (var win in wins)
+                {
+                    foreach (var pos in win.Payline.Positions)
+                    {
+                        if (pos.Column == 0 && grid[pos.Row, pos.Column] == SymbolKind.Joker)
+                        {
+                            scoredJokerOnLeftReel = true;
+                            break;
+                        }
+                    }
+                    if (scoredJokerOnLeftReel) break;
+                }
+
+                if (scoredJokerOnLeftReel)
+                {
+                    for (int i = 0; i < modifiers.Joker1000xGambitCount; i++)
+                    {
+                        overallMultiplier *= 1000;
+                    }
+                }
+            }
+
+            if (modifiers.StrawberryGambitCount > 0)
+            {
+                bool hasStrawberryWin = false;
+                foreach (var win in wins)
+                {
+                    if (win.ResolvedSymbol == SymbolKind.Strawberry)
+                    {
+                        hasStrawberryWin = true;
+                        break;
+                    }
+                }
+
+                if (hasStrawberryWin)
+                {
+                    var strawberryPositions = new HashSet<GridPosition>();
+                    foreach (var win in wins)
+                    {
+                        if (win.ResolvedSymbol == SymbolKind.Strawberry)
+                        {
+                            foreach (var pos in win.Payline.Positions)
+                            {
+                                if (grid[pos.Row, pos.Column] == SymbolKind.Strawberry)
+                                {
+                                    strawberryPositions.Add(pos);
+                                }
+                            }
+                        }
+                    }
+
+                    int count = strawberryPositions.Count;
+                    if (count > 0)
+                    {
+                        BigInteger strawberryMult = BigInteger.One;
+                        for (int i = 0; i < modifiers.StrawberryGambitCount; i++)
+                        {
+                            strawberryMult *= (10 * count);
+                        }
+                        overallMultiplier *= strawberryMult;
+                    }
+                }
+                else
+                {
+                    int count = 0;
+                    for (int row = 0; row < GameBalance.GridRows; row++)
+                    {
+                        for (int col = 0; col < GameBalance.GridColumns; col++)
+                        {
+                            if (grid[row, col] == SymbolKind.Strawberry)
+                            {
+                                count++;
+                            }
+                        }
+                    }
+
+                    if (count > 0)
+                    {
+                        double multiplier = 1.0;
+                        for (int i = 0; i < modifiers.StrawberryGambitCount; i++)
+                        {
+                            multiplier *= Math.Max(0.0, 1.0 - 0.25 * count);
+                        }
+
+                        finalPayout = (finalPayout * (long)(multiplier * 10000)) / 10000;
+                        foreach (var win in wins)
+                        {
+                            win.FinalPayoutKurus = (win.FinalPayoutKurus * (long)(multiplier * 10000)) / 10000;
+                        }
+                        overallMultiplier = BigInteger.Zero; // Already applied deduction
+                    }
+                }
+            }
+
+            if (overallMultiplier > 1)
+            {
+                finalPayout *= overallMultiplier;
+                foreach (var win in wins)
+                {
+                    win.FinalPayoutKurus *= overallMultiplier;
+                }
             }
 
             return new ScoredSpin(wins, finalPayout, comboMultiplier, batchFactor);
@@ -923,6 +1075,94 @@ namespace SerenaysGambit
                 TargetBeforeSpinKurus = targetBeforeSpin,
                 ThresholdLevelBeforeSpin = thresholdLevelBeforeSpin
             };
+
+            // Process Left Reel Joker Loss Chance
+            if (state.Modifiers.Joker1000xGambitCount > 0)
+            {
+                bool scoredJokerOnLeftReel = false;
+                foreach (var win in score.Wins)
+                {
+                    foreach (var pos in win.Payline.Positions)
+                    {
+                        if (pos.Column == 0 && grid[pos.Row, pos.Column] == SymbolKind.Joker)
+                        {
+                            scoredJokerOnLeftReel = true;
+                            break;
+                        }
+                    }
+                    if (scoredJokerOnLeftReel) break;
+                }
+
+                if (scoredJokerOnLeftReel)
+                {
+                    int jokersLost = 0;
+                    for (int i = 0; i < state.Modifiers.Joker1000xGambitCount; i++)
+                    {
+                        if (_random.Next(100) < 15)
+                        {
+                            jokersLost++;
+                        }
+                    }
+
+                    if (jokersLost > 0)
+                    {
+                        var leftReel = state.Config.ReelStripAt(0);
+                        var jokerIndices = new List<int>();
+                        for (int i = 0; i < leftReel.Length; i++)
+                        {
+                            if (leftReel[i] == SymbolKind.Joker)
+                            {
+                                jokerIndices.Add(i);
+                            }
+                        }
+
+                        int actualReplaced = 0;
+                        for (int k = 0; k < jokersLost && jokerIndices.Count > 0; k++)
+                        {
+                            int rIdx = _random.Next(jokerIndices.Count);
+                            int stripIdx = jokerIndices[rIdx];
+                            jokerIndices.RemoveAt(rIdx);
+
+                            SymbolKind[] fruits = { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana, SymbolKind.Orange, SymbolKind.Apple };
+                            SymbolKind replacement = fruits[_random.Next(fruits.Length)];
+
+                            state.Config.ReplaceSymbolOnStrip(0, stripIdx, replacement);
+                            actualReplaced++;
+                        }
+
+                        if (actualReplaced > 0)
+                        {
+                            result.JokerLostOnLeftReel = true;
+                            result.Message += $" (Joker lost on left reel!)";
+                        }
+                    }
+                }
+            }
+
+            // Process Apple Decay Absence Check
+            if (state.Modifiers.AppleDecayGambitCount > 0)
+            {
+                bool hasApple = false;
+                for (int r = 0; r < GameBalance.GridRows; r++)
+                {
+                    for (int c = 0; c < GameBalance.GridColumns; c++)
+                    {
+                        if (grid[r, c] == SymbolKind.Apple)
+                        {
+                            hasApple = true;
+                            break;
+                        }
+                    }
+                    if (hasApple) break;
+                }
+
+                if (!hasApple)
+                {
+                    state.Modifiers.DecayApple(state.Modifiers.AppleDecayGambitCount);
+                    result.AppleDecayed = true;
+                    result.Message += $" (Apple decayed to {state.Modifiers.SymbolValue(SymbolKind.Apple)}x!)";
+                }
+            }
 
             if (TrySettleThreshold(state))
             {
