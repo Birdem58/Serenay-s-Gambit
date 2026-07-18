@@ -450,7 +450,10 @@ namespace SerenaysGambit.Tests
             ShopOffer authoredOffer = null;
             foreach (var offer in state.ShopOffers)
             {
-                if (offer.Kind != ShopOfferKind.BaseOutputMultiplier)
+                if (offer.Kind != ShopOfferKind.BaseOutputMultiplier &&
+                    offer.Kind != ShopOfferKind.HorizontalMatchMultiplier &&
+                    offer.Kind != ShopOfferKind.VerticalMatchMultiplier &&
+                    offer.Kind != ShopOfferKind.CrissCrossMatchMultiplier)
                 {
                     authoredOffer = offer;
                     break;

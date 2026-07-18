@@ -30,6 +30,8 @@ namespace SerenaysGambit
         private RectTransform _mainContent;
         private Vector3 _originalMainContentPosition;
         private bool _hasOriginalMainContentPosition;
+        private readonly Vector3[] _originalReelPositions = new Vector3[GameBalance.GridColumns];
+        private readonly bool[] _hasOriginalReelPositions = new bool[GameBalance.GridColumns];
 
         private const float FirstWinPulseDuration = 0.6f;
         private const float MinimumWinPulseDuration = 0.025f;
@@ -180,6 +182,26 @@ namespace SerenaysGambit
             ShakeMainContent(punch, 0.25f, 10, 1f);
         }
 
+        private void PunchReelDown(int reelIndex)
+        {
+            var scroller = _reelScrollers[reelIndex];
+            if (scroller == null) return;
+
+            Transform reelTrans = scroller.transform;
+            if (!_hasOriginalReelPositions[reelIndex])
+            {
+                _originalReelPositions[reelIndex] = reelTrans.localPosition;
+                _hasOriginalReelPositions[reelIndex] = true;
+            }
+
+            reelTrans.DOComplete();
+            reelTrans.localPosition = _originalReelPositions[reelIndex];
+
+            float intensity = 15f + reelIndex * 15f;
+            Vector3 punch = new Vector3(0f, -intensity, 0f);
+            reelTrans.DOPunchPosition(punch, 0.25f, 10, 1f);
+        }
+
         private void OnDestroy()
         {
             if (_mainContent != null)
@@ -188,6 +210,18 @@ namespace SerenaysGambit
                 if (_hasOriginalMainContentPosition)
                 {
                     _mainContent.anchoredPosition = _originalMainContentPosition;
+                }
+            }
+
+            for (int i = 0; i < GameBalance.GridColumns; i++)
+            {
+                if (_reelScrollers[i] != null)
+                {
+                    _reelScrollers[i].transform.DOComplete();
+                    if (_hasOriginalReelPositions[i])
+                    {
+                        _reelScrollers[i].transform.localPosition = _originalReelPositions[i];
+                    }
                 }
             }
         }
@@ -252,7 +286,7 @@ namespace SerenaysGambit
                 }
             }
 
-            var stopDurations = new[] { 1.0f, 1.25f, 1.50f };
+            var stopDurations = new[] { 1.0f, 1.50f, 2.00f };
             for (var col = 0; col < GameBalance.GridColumns; col++)
             {
                 var capturedCol = col;
@@ -267,6 +301,7 @@ namespace SerenaysGambit
                     _reelScrollers[capturedCol].StopSpin(stopIndex, stopDurations[capturedCol], delegate
                     {
                         PunchUpCameraShake(capturedCol);
+                        PunchReelDown(capturedCol);
                     });
                 }
             }
