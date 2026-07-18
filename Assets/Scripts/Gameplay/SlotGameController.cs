@@ -59,6 +59,7 @@ namespace SerenaysGambit
         private TextMeshProUGUI _roundText;
         private RectTransform _organsLayout;
         private readonly List<OwnedUpgradeView> _organViews = new List<OwnedUpgradeView>();
+        private readonly Sprite[] _organSprites = new Sprite[GameBalance.OrganCount];
         private bool _isFirstRefresh = true;
         private TextMeshProUGUI _ticketsText;
         private TextMeshProUGUI _payoutText;
@@ -68,6 +69,7 @@ namespace SerenaysGambit
         private UpgradeTooltip _upgradeTooltip;
         private TextMeshProUGUI _refreshLabel;
         private readonly TextMeshProUGUI[] _offerLabels = new TextMeshProUGUI[3];
+        private readonly Image[] _offerIcons = new Image[3];
         private readonly Button[] _offerButtons = new Button[3];
         private readonly Image[,] _cellImages = new Image[GameBalance.GridRows, GameBalance.GridColumns];
         private readonly TextMeshProUGUI[,] _cellTexts = new TextMeshProUGUI[GameBalance.GridRows, GameBalance.GridColumns];
@@ -119,6 +121,7 @@ namespace SerenaysGambit
             _shopItemDefinitions = Resources.LoadAll<ShopItemDefinition>("SerenaysGambit/Data/ShopItems");
             _gambitItemDefinitions = Resources.LoadAll<GambitItemDefinition>("SerenaysGambit/Data/Gambits");
             _balanceDefinition = Resources.Load<BalanceDefinition>("SerenaysGambit/Data/Balance/DefaultBalance");
+            LoadOrganSprites();
             IndexShopItemDefinitions();
             IndexGambitItemDefinitions();
             _rulesConfig = RuntimeGameConfigFactory.Create(
@@ -216,6 +219,19 @@ namespace SerenaysGambit
         {
             Vector3 punch = new Vector3(0f, -40f, 0f);
             ShakeMainContent(punch, 0.35f, 12, 1f);
+        }
+
+        private static bool IsTripleReel(SpinResult result, int reelIndex)
+        {
+            if (result == null || result.Grid == null
+                || reelIndex < 0 || reelIndex >= GameBalance.GridColumns)
+            {
+                return false;
+            }
+
+            var topSymbol = result.Grid[0, reelIndex];
+            return topSymbol == result.Grid[1, reelIndex]
+                && topSymbol == result.Grid[2, reelIndex];
         }
 
         private void PunchUpCameraShake(int reelIndex)
@@ -390,7 +406,9 @@ namespace SerenaysGambit
                 }
             }
 
-            var stopDurations = new[] { 1.0f, 1.50f, 2.00f };
+            // These are finish times because all reels begin stopping together.
+            // Halving the old 0.50s spacing makes the reels settle faster in sequence.
+            var stopDurations = new[] { 1.00f, 1.25f, 1.50f };
             for (var col = 0; col < GameBalance.GridColumns; col++)
             {
                 var capturedCol = col;
@@ -404,7 +422,14 @@ namespace SerenaysGambit
                 {
                     _reelScrollers[capturedCol].StopSpin(stopIndex, stopDurations[capturedCol], delegate
                     {
-                        PunchUpCameraShake(capturedCol);
+                        if (IsTripleReel(result, capturedCol))
+                        {
+                            PunchDownCameraShake();
+                        }
+                        else
+                        {
+                            PunchUpCameraShake(capturedCol);
+                        }
                         PunchReelDown(capturedCol);
                     });
                 }
@@ -448,10 +473,13 @@ namespace SerenaysGambit
                 yield return StartCoroutine(ShowMaxPlusWin(result.MaxPlusWin));
             }
 
+            // Disable congratulations screen for now to avoid overlapping with max win
+            /*
             if (result.ThresholdCleared)
             {
                 yield return StartCoroutine(ShowThresholdCongratulations(result));
             }
+            */
 
             _isSpinAnimating = false;
 
@@ -548,7 +576,8 @@ namespace SerenaysGambit
                 _thresholdBarFill = Require<Image>(root, "MainContent/SlotMachinePanel/ThresholdBar/Fill");
                 _thresholdBarText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ThresholdBar/Label");
 
-                _lever = Require<SlotLever>(root, "MainContent/SlotMachinePanel/LeverPanel/Lever");
+                var rollingPinObj = GameObject.Find("RollingPin");
+                _lever = rollingPinObj != null ? rollingPinObj.GetComponent<SlotLever>() : null;
                 _spin1xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin1xButton");
                 _spin5xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin5xButton");
                 _spin10xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin10xButton");
@@ -560,6 +589,7 @@ namespace SerenaysGambit
                     var name = "Offer" + (offerIndex + 1);
                     _offerButtons[offerIndex] = Require<Button>(root, "MainContent/SerenayShopPanel/OfferList/" + name);
                     _offerLabels[offerIndex] = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/OfferList/" + name + "/Label");
+                    _offerIcons[offerIndex] = CreateOfferIcon(_offerLabels[offerIndex]);
                 }
 
                 for (var row = 0; row < GameBalance.GridRows; row++)
@@ -701,11 +731,57 @@ namespace SerenaysGambit
             for (var index = 0; index < _offerButtons.Length; index++)
             {
                 var offer = _state.ShopOffers[index];
+                var icon = ShopItemIcon(offer.Kind);
+                var hasIcon = icon != null;
+
                 _offerLabels[index].text = offer.Purchased
                     ? offer.Title + "\nSOLD"
                     : offer.Title + "\n" + offer.Description + "\n" + MoneyFormatter.FormatTL(offer.CostKurus);
+
+                _offerLabels[index].enabled = !hasIcon;
+                if (_offerIcons[index] != null)
+                {
+                    _offerIcons[index].sprite = icon;
+                    _offerIcons[index].enabled = hasIcon;
+                    _offerIcons[index].color = offer.Purchased
+                        ? new Color(0.55f, 0.55f, 0.6f, 0.65f)
+                        : Color.white;
+                }
+
                 _offerButtons[index].interactable = _state.Phase == RunPhase.Playing && !offer.Purchased && _state.CashKurus >= offer.CostKurus;
             }
+        }
+
+        private static Image CreateOfferIcon(TextMeshProUGUI label)
+        {
+            if (label == null)
+            {
+                return null;
+            }
+
+            var iconObject = label.transform.Find("Icon");
+            if (iconObject == null)
+            {
+                var iconGameObject = new GameObject("Icon", typeof(RectTransform));
+                iconGameObject.transform.SetParent(label.transform, false);
+                iconObject = iconGameObject.transform;
+            }
+
+            var icon = iconObject.GetComponent<Image>();
+            if (icon == null)
+            {
+                icon = iconObject.gameObject.AddComponent<Image>();
+            }
+
+            var rect = icon.rectTransform;
+            rect.anchorMin = new Vector2(0.12f, 0.08f);
+            rect.anchorMax = new Vector2(0.88f, 0.92f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            icon.enabled = false;
+            return icon;
         }
 
         private void IndexShopItemDefinitions()
@@ -718,11 +794,43 @@ namespace SerenaysGambit
 
             foreach (var definition in _shopItemDefinitions)
             {
-                if (definition != null)
+                if (definition == null)
+                {
+                    continue;
+                }
+
+                ShopItemDefinition current;
+                if (!_shopItemDefinitionsByKind.TryGetValue(definition.Kind, out current)
+                    || current == null
+                    || (current.Icon == null && definition.Icon != null))
                 {
                     _shopItemDefinitionsByKind[definition.Kind] = definition;
                 }
             }
+        }
+
+        private Sprite ShopItemIcon(ShopOfferKind kind)
+        {
+            ShopItemDefinition definition;
+            if (_shopItemDefinitionsByKind.TryGetValue(kind, out definition)
+                && definition != null
+                && definition.Icon != null)
+            {
+                return definition.Icon;
+            }
+
+            if (_shopItemDefinitions != null)
+            {
+                foreach (var candidate in _shopItemDefinitions)
+                {
+                    if (candidate != null && candidate.Kind == kind && candidate.Icon != null)
+                    {
+                        return candidate.Icon;
+                    }
+                }
+            }
+
+            return null;
         }
 
         private void IndexGambitItemDefinitions()
@@ -768,7 +876,7 @@ namespace SerenaysGambit
                     ? definition.Description
                     : "Upgrade details are unavailable.";
                 view.Bind(
-                    definition == null ? null : definition.Icon,
+                    ShopItemIcon(kind),
                     UpgradeFallbackLabel(kind),
                     UpgradeFallbackColor(kind),
                     ownedCount,
@@ -1179,7 +1287,7 @@ namespace SerenaysGambit
                 }
 
                 view.Bind(
-                    null,
+                    _organSprites[i],
                     OrganFallbackLabel(organNumber),
                     OrganFallbackColor(organNumber),
                     1,
@@ -1194,6 +1302,26 @@ namespace SerenaysGambit
                 {
                     tooltipTrigger.Bind(_upgradeTooltip, organName, "Organ needed to survive.", "Status: Healthy");
                 }
+            }
+        }
+
+        private void LoadOrganSprites()
+        {
+            var organNames = new[] { "Stomach", "Liver", "Intestines", "Lungs", "Heart" };
+            for (var index = 0; index < organNames.Length && index < _organSprites.Length; index++)
+            {
+                var texture = Resources.Load<Texture2D>("SerenaysGambit/Data/Organs/" + organNames[index]);
+                if (texture == null)
+                {
+                    Debug.LogWarning("Missing organ artwork: " + organNames[index]);
+                    continue;
+                }
+
+                _organSprites[index] = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
             }
         }
 
@@ -2288,17 +2416,19 @@ namespace SerenaysGambit
             if (panelTransform != null)
             {
                 var sequence = DOTween.Sequence(_thresholdCongratulationsOverlay);
+                var thresholdScaleUpTarget = Mathf.Max(
+                    _celebrationAnimationSettings.ThresholdInitialScale,
+                    _celebrationAnimationSettings.ThresholdOvershootScale);
                 sequence.Append(panelTransform.DOScale(
-                    Vector3.one * _celebrationAnimationSettings.ThresholdOvershootScale,
-                    _celebrationAnimationSettings.ThresholdScaleUpDuration).SetEase(Ease.OutBack));
+                    Vector3.one * thresholdScaleUpTarget,
+                    _celebrationAnimationSettings.ThresholdScaleUpDuration).SetEase(Ease.OutCubic));
+                var thresholdPunchScale = Mathf.Max(
+                    thresholdScaleUpTarget,
+                    1f + _celebrationAnimationSettings.ThresholdPunchScaleUpAmount);
                 sequence.Append(panelTransform.DOScale(
-                    Vector3.one,
-                    _celebrationAnimationSettings.ThresholdSettleDuration).SetEase(Ease.InOutSine));
-                sequence.Append(panelTransform.DOPunchScale(
-                    Vector3.one * _celebrationAnimationSettings.ThresholdPunchStrength,
-                    _celebrationAnimationSettings.ThresholdPunchDuration,
-                    _celebrationAnimationSettings.ThresholdPunchVibrato,
-                    _celebrationAnimationSettings.ThresholdPunchElasticity));
+                    Vector3.one * thresholdPunchScale,
+                    _celebrationAnimationSettings.ThresholdPunchScaleUpDuration).SetEase(Ease.OutCubic));
+                sequence.AppendInterval(_celebrationAnimationSettings.ThresholdHoldDuration);
                 yield return sequence.WaitForCompletion();
             }
             else
@@ -2371,37 +2501,39 @@ namespace SerenaysGambit
             }
 
             var sequence = DOTween.Sequence(_maxPlusWinOverlay);
+            var maxPlusItemScaleUpTarget = Mathf.Max(
+                _celebrationAnimationSettings.MaxPlusItemInitialScale,
+                _celebrationAnimationSettings.MaxPlusItemOvershootScale);
             if (_winningItemRect != null)
             {
                 sequence.Append(_winningItemRect.DOScale(
-                    Vector3.one * _celebrationAnimationSettings.MaxPlusItemOvershootScale,
-                    _celebrationAnimationSettings.MaxPlusItemScaleUpDuration).SetEase(Ease.OutBack));
+                    Vector3.one * maxPlusItemScaleUpTarget,
+                    _celebrationAnimationSettings.MaxPlusItemScaleUpDuration).SetEase(Ease.OutCubic));
             }
             if (_maxPlusWinTitleRect != null)
             {
                 sequence.Join(_maxPlusWinTitleRect.DOScale(
-                    Vector3.one,
-                    _celebrationAnimationSettings.MaxPlusTitleScaleUpDuration).SetEase(Ease.OutBack));
+                    Vector3.one * Mathf.Max(1f, _celebrationAnimationSettings.MaxPlusTitleInitialScale),
+                    _celebrationAnimationSettings.MaxPlusTitleScaleUpDuration).SetEase(Ease.OutCubic));
             }
             var maxPlusPunchDuration = Mathf.Max(
                 0.01f,
                 _celebrationAnimationSettings.MaxPlusWinDuration
                     - _celebrationAnimationSettings.MaxPlusItemScaleUpDuration
-                    - _celebrationAnimationSettings.MaxPlusItemSettleDuration);
+                    - _celebrationAnimationSettings.MaxPlusItemHoldDuration);
             if (_winningItemRect != null)
             {
+                var maxPlusPunchScale = Mathf.Max(
+                    maxPlusItemScaleUpTarget,
+                    1f + _celebrationAnimationSettings.MaxPlusPunchScaleUpAmount);
                 sequence.Append(_winningItemRect.DOScale(
-                    Vector3.one,
-                    _celebrationAnimationSettings.MaxPlusItemSettleDuration).SetEase(Ease.InOutSine));
-                sequence.Append(_winningItemRect.DOPunchScale(
-                    Vector3.one * _celebrationAnimationSettings.MaxPlusPunchStrength,
-                    maxPlusPunchDuration,
-                    _celebrationAnimationSettings.MaxPlusPunchVibrato,
-                    _celebrationAnimationSettings.MaxPlusPunchElasticity));
+                    Vector3.one * maxPlusPunchScale,
+                    maxPlusPunchDuration).SetEase(Ease.OutCubic));
+                sequence.AppendInterval(_celebrationAnimationSettings.MaxPlusItemHoldDuration);
             }
             else
             {
-                sequence.AppendInterval(maxPlusPunchDuration);
+                sequence.AppendInterval(maxPlusPunchDuration + _celebrationAnimationSettings.MaxPlusItemHoldDuration);
             }
 
             yield return sequence.WaitForCompletion();

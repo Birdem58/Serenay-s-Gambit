@@ -16,11 +16,9 @@ MonoBehaviour:
   _thresholdInitialScale: 0.78
   _thresholdOvershootScale: 1.08
   _thresholdScaleUpDuration: 0.42
-  _thresholdSettleDuration: 0.28
-  _thresholdPunchStrength: 0.12
-  _thresholdPunchDuration: 2.3
-  _thresholdPunchVibrato: 6
-  _thresholdPunchElasticity: 0.55
+  _thresholdHoldDuration: 0.28
+  _thresholdPunchScaleUpAmount: 0.12
+  _thresholdPunchScaleUpDuration: 2.3
   _maxPlusOverlayOpacity: 0.5
   _maxPlusWinDuration: 3
   _maxPlusItemInitialScale: 0.45
@@ -28,7 +26,5 @@ MonoBehaviour:
   _maxPlusItemOvershootScale: 1.1
   _maxPlusItemScaleUpDuration: 0.55
   _maxPlusTitleScaleUpDuration: 0.45
-  _maxPlusItemSettleDuration: 0.25
-  _maxPlusPunchStrength: 0.14
-  _maxPlusPunchVibrato: 7
-  _maxPlusPunchElasticity: 0.65
+  _maxPlusItemHoldDuration: 0.25
+  _maxPlusPunchScaleUpAmount: 0.14
