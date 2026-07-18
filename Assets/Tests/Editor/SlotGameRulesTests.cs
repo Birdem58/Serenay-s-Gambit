@@ -429,6 +429,69 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
+        public void EachRunReceivesIndependentMutableReelStrips()
+        {
+            var engine = new SlotGameEngine(23);
+            var firstRun = engine.CreateNewRun();
+            var firstStrip = firstRun.Config.ReelStripAt(0);
+
+            firstRun.Config.ReplaceSymbolOnStrip(0, 0, SymbolKind.Apple);
+            firstStrip[1] = SymbolKind.Apple;
+
+            Assert.That(firstRun.Config.ReelStripAt(0)[0], Is.EqualTo(SymbolKind.Apple));
+            Assert.That(firstRun.Config.ReelStripAt(0)[1], Is.EqualTo(GameBalance.InitialReels[0][1]));
+
+            var restarted = engine.CreateNewRun();
+
+            Assert.That(restarted.Config, Is.Not.SameAs(firstRun.Config));
+            Assert.That(restarted.Config.ReelStripAt(0), Is.EqualTo(GameBalance.InitialReels[0]));
+        }
+
+        [Test]
+        public void SpinsUseTheCurrentRunsReelStrips()
+        {
+            var engine = new SlotGameEngine(29);
+            var state = engine.CreateNewRun();
+            for (var index = 0; index < GameBalance.ReelLength; index++)
+            {
+                state.Config.ReplaceSymbolOnStrip(0, index, SymbolKind.Apple);
+            }
+
+            state.RollsRemaining = 1;
+            var result = engine.TrySpin(state, 1);
+
+            Assert.That(result.Accepted, Is.True);
+            for (var row = 0; row < GameBalance.GridRows; row++)
+            {
+                Assert.That(result.Grid[row, 0], Is.EqualTo(SymbolKind.Apple));
+            }
+        }
+
+        [Test]
+        public void StartingRollsSaturateInsteadOfOverflowingWithStackedTenfoldGambits()
+        {
+            var modifiers = new RunModifiers
+            {
+                BatchTenGambitCount = 9
+            };
+
+            Assert.That(modifiers.StartingRolls, Is.EqualTo(int.MaxValue));
+        }
+
+        [Test]
+        public void PurchasingFreeSpinsCannotOverflowRemainingRolls()
+        {
+            var engine = new SlotGameEngine(31);
+            var state = engine.CreateNewRun();
+            state.RollsRemaining = int.MaxValue - 10;
+            state.ShopOffers.Clear();
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.FreeSpins, BigInteger.Zero, "Free Spins", "Test offer"));
+
+            Assert.That(engine.TryPurchase(state, 0, out _), Is.True);
+            Assert.That(state.RollsRemaining, Is.EqualTo(int.MaxValue));
+        }
+
+        [Test]
         public void AuthoredShopCopyIsUsedForGeneratedOffers()
         {
             var configs = new Dictionary<ShopOfferKind, ShopItemConfig>();

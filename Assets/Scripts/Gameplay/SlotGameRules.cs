@@ -71,7 +71,7 @@ namespace SerenaysGambit
                 throw new ArgumentException("A reel must contain exactly five faces.", nameof(faces));
             }
 
-            _faces = faces;
+            _faces = (SymbolKind[])faces.Clone();
             StopIndex = ((stopIndex % _faces.Length) + _faces.Length) % _faces.Length;
         }
 
@@ -275,7 +275,7 @@ namespace SerenaysGambit
                 throw new ArgumentOutOfRangeException(nameof(column));
             }
 
-            return _reelStrips[column];
+            return (SymbolKind[])_reelStrips[column].Clone();
         }
 
         public void ReplaceSymbolOnStrip(int column, int index, SymbolKind newSymbol)
@@ -300,6 +300,22 @@ namespace SerenaysGambit
         {
             ShopItemConfig config;
             return _shopItemConfigs.TryGetValue(kind, out config) ? config : null;
+        }
+
+        // Reel strips can change during a run (for example, when a Joker is lost),
+        // so every new run needs an independent copy of the authored rules.
+        public GameRulesConfig CreateRunCopy()
+        {
+            return new GameRulesConfig(
+                _reelStrips,
+                StrawberryStartingValue,
+                CherryStartingValue,
+                BaseRolls,
+                OrganCount,
+                ThresholdCount,
+                FreeSpinBundle,
+                _shopItemConfigs,
+                _startingValues);
         }
 
         public static GameRulesConfig CreateDefault()
@@ -403,15 +419,21 @@ namespace SerenaysGambit
         {
             get 
             {
-                int baseRolls = (_config.BaseRolls * BaseRollMultiplier) + TemporaryFreeSpins;
+                long baseRolls = (long)_config.BaseRolls * BaseRollMultiplier + TemporaryFreeSpins;
                 if (BatchTenGambitCount > 0)
                 {
                     for (int i = 0; i < BatchTenGambitCount; i++)
                     {
+                        if (baseRolls > int.MaxValue / 10)
+                        {
+                            return int.MaxValue;
+                        }
+
                         baseRolls *= 10;
                     }
                 }
-                return baseRolls;
+
+                return baseRolls >= int.MaxValue ? int.MaxValue : (int)baseRolls;
             }
         }
 
@@ -444,7 +466,8 @@ namespace SerenaysGambit
 
         public void AddFreeSpins(int amount)
         {
-            TemporaryFreeSpins += Math.Max(0, amount);
+            var normalizedAmount = Math.Max(0, amount);
+            TemporaryFreeSpins = (int)Math.Min(int.MaxValue, (long)TemporaryFreeSpins + normalizedAmount);
         }
 
         public void ClearThresholdFreeSpins()
@@ -651,6 +674,31 @@ namespace SerenaysGambit
         internal void ClearOwnedUpgrade(ShopOfferKind kind)
         {
             _ownedUpgradeCounts.Remove(kind);
+        }
+
+        internal void AddRolls(int amount)
+        {
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            RollsRemaining = (int)Math.Min(int.MaxValue, (long)RollsRemaining + amount);
+        }
+
+        internal void MultiplyRolls(int multiplier)
+        {
+            if (multiplier <= 0)
+            {
+                return;
+            }
+
+            var multipliedRolls = (long)RollsRemaining * multiplier;
+            RollsRemaining = multipliedRolls >= int.MaxValue
+                ? int.MaxValue
+                : multipliedRolls <= int.MinValue
+                    ? int.MinValue
+                    : (int)multipliedRolls;
         }
 
         public BigInteger CurrentTargetKurus
@@ -1028,7 +1076,7 @@ namespace SerenaysGambit
 
         public RunState CreateNewRun()
         {
-            var state = new RunState(_config);
+            var state = new RunState(_config.CreateRunCopy());
             RefillRolls(state);
             GenerateShop(state);
             return state;
@@ -1066,7 +1114,7 @@ namespace SerenaysGambit
             var thresholdLevelBeforeSpin = state.ThresholdLevel;
 
             state.RollsRemaining -= batchFactor;
-            var grid = CreateGrid();
+            var grid = CreateGrid(state.Config);
             var score = SlotScoring.Evaluate(grid, state.Modifiers, batchFactor);
             state.Stats.RecordSpin(score);
             state.CashKurus += score.PayoutKurus;
@@ -1283,20 +1331,20 @@ namespace SerenaysGambit
                     break;
                 case ShopOfferKind.FreeSpins:
                     state.Modifiers.AddFreeSpins(state.Config.FreeSpinBundle);
-                    state.RollsRemaining += state.Config.FreeSpinBundle;
+                    state.AddRolls(state.Config.FreeSpinBundle);
                     break;
                 case ShopOfferKind.BaseRollMultiplierX2:
                     {
                         var mult = state.Config.FindShopItemConfig(offer.Kind)?.BaseRollMultiplierValue ?? 0;
                         state.Modifiers.SetBaseRollMultiplier(mult > 0 ? mult : 2);
-                        state.RollsRemaining += state.Modifiers.StartingRolls - rollsBeforeUpgrade;
+                        state.AddRolls(state.Modifiers.StartingRolls - rollsBeforeUpgrade);
                     }
                     break;
                 case ShopOfferKind.BaseRollMultiplierX10:
                     {
                         var mult = state.Config.FindShopItemConfig(offer.Kind)?.BaseRollMultiplierValue ?? 0;
                         state.Modifiers.SetBaseRollMultiplier(mult > 0 ? mult : 10);
-                        state.RollsRemaining += state.Modifiers.StartingRolls - rollsBeforeUpgrade;
+                        state.AddRolls(state.Modifiers.StartingRolls - rollsBeforeUpgrade);
                     }
                     break;
                 case ShopOfferKind.BaseOutputMultiplier:
@@ -1350,7 +1398,7 @@ namespace SerenaysGambit
             };
         }
 
-        private SymbolKind[,] CreateGrid()
+        private SymbolKind[,] CreateGrid(GameRulesConfig config)
         {
             if (_boardFactory != null)
             {
@@ -1360,7 +1408,7 @@ namespace SerenaysGambit
             var grid = new SymbolKind[GameBalance.GridRows, GameBalance.GridColumns];
             for (var column = 0; column < GameBalance.GridColumns; column++)
             {
-                var strip = _config.ReelStripAt(column);
+                var strip = config.ReelStripAt(column);
                 var stop = _random.Next(GameBalance.ReelLength);
                 var reel = new ReelState(strip, stop);
                 for (var row = 0; row < GameBalance.GridRows; row++)

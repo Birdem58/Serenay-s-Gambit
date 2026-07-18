@@ -258,6 +258,7 @@ namespace SerenaysGambit
             _runService = new RunService(Environment.TickCount, _rulesConfig);
             _shopService = _runService.Shop;
             _state = _runService.CreateNewRun();
+            ResetReelStripsForRun();
             InitializeOrganViews();
             ClearGrid();
             _resultText.text = "Choose a batch to spin. Space = 1x, 5 = 5x, 0 = 10x.";
@@ -275,6 +276,8 @@ namespace SerenaysGambit
             {
                 _lever.IsAvailable = false;
             }
+
+            var reelStripsBeforeSpin = CaptureReelStrips(_state.Config);
             var result = _runService.TrySpin(_state, batchFactor);
             if (!result.Accepted)
             {
@@ -283,10 +286,10 @@ namespace SerenaysGambit
                 return;
             }
 
-            StartCoroutine(DoSpinAnimation(result));
+            StartCoroutine(DoSpinAnimation(result, reelStripsBeforeSpin));
         }
 
-        private IEnumerator DoSpinAnimation(SpinResult result)
+        private IEnumerator DoSpinAnimation(SpinResult result, SymbolKind[][] reelStripsBeforeSpin)
         {
             _isSpinAnimating = true;
 
@@ -314,7 +317,7 @@ namespace SerenaysGambit
             for (var col = 0; col < GameBalance.GridColumns; col++)
             {
                 var capturedCol = col;
-                var strip = _rulesConfig.ReelStripAt(capturedCol);
+                var strip = reelStripsBeforeSpin[capturedCol];
                 var g0 = result.Grid[0, capturedCol];
                 var g1 = result.Grid[1, capturedCol];
                 var g2 = result.Grid[2, capturedCol];
@@ -348,7 +351,7 @@ namespace SerenaysGambit
                 yield return null;
             }
 
-            UpdateGrid(result.Grid);
+            UpdateGrid(result.Grid, reelStripsBeforeSpin);
 
             if (result.Score.Wins != null && result.Score.Wins.Count > 0)
             {
@@ -366,7 +369,7 @@ namespace SerenaysGambit
             {
                 if (_reelScrollers[0] != null)
                 {
-                    _reelScrollers[0].UpdateStrip(_rulesConfig.ReelStripAt(0));
+                    _reelScrollers[0].UpdateStrip(_state.Config.ReelStripAt(0));
                 }
             }
 
@@ -958,7 +961,7 @@ namespace SerenaysGambit
             else if (option == 2)
             {
                 _state.Modifiers.BatchTenGambitCount++;
-                _state.RollsRemaining *= 10;
+                _state.MultiplyRolls(10);
                 _resultText.text = "Accepted: Tenfold Batch!";
             }
             else if (option == 3)
@@ -1250,11 +1253,11 @@ namespace SerenaysGambit
             }
         }
 
-        private void UpdateGrid(SymbolKind[,] grid)
+        private void UpdateGrid(SymbolKind[,] grid, SymbolKind[][] reelStripsBeforeSpin)
         {
             for (var column = 0; column < GameBalance.GridColumns; column++)
             {
-                var strip = _rulesConfig.ReelStripAt(column);
+                var strip = reelStripsBeforeSpin[column];
                 var g0 = grid[0, column];
                 var g1 = grid[1, column];
                 var g2 = grid[2, column];
@@ -1278,6 +1281,28 @@ namespace SerenaysGambit
                     }
                 }
             }
+        }
+
+        private void ResetReelStripsForRun()
+        {
+            for (var column = 0; column < GameBalance.GridColumns; column++)
+            {
+                if (_reelScrollers[column] != null)
+                {
+                    _reelScrollers[column].UpdateStrip(_state.Config.ReelStripAt(column));
+                }
+            }
+        }
+
+        private static SymbolKind[][] CaptureReelStrips(GameRulesConfig config)
+        {
+            var strips = new SymbolKind[GameBalance.GridColumns][];
+            for (var column = 0; column < strips.Length; column++)
+            {
+                strips[column] = config.ReelStripAt(column);
+            }
+
+            return strips;
         }
 
         private int FindStopIndex(SymbolKind[] strip, SymbolKind g0, SymbolKind g1, SymbolKind g2)
