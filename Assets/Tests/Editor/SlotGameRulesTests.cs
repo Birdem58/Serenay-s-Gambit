@@ -9,10 +9,10 @@ namespace SerenaysGambit.Tests
         [Test]
         public void ReelStateWrapsTheFiveFaceStripForTheVisibleRows()
         {
-            var mockStrip = new[] { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Joker };
+            var mockStrip = new[] { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Kiss };
             var reel = new ReelState(mockStrip, 4);
 
-            Assert.That(reel.VisibleFaceAt(0), Is.EqualTo(SymbolKind.Joker));
+            Assert.That(reel.VisibleFaceAt(0), Is.EqualTo(SymbolKind.Kiss));
             Assert.That(reel.VisibleFaceAt(1), Is.EqualTo(SymbolKind.Strawberry));
             Assert.That(reel.VisibleFaceAt(2), Is.EqualTo(SymbolKind.Strawberry));
         }
@@ -38,13 +38,13 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
-        public void MiddleJokerResolvesAsTheMatchingRegularSymbol()
+        public void MiddleKissResolvesAsTheMatchingRegularSymbol()
         {
             var grid = new[,]
             {
-                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry },
-                { SymbolKind.Strawberry, SymbolKind.Joker, SymbolKind.Strawberry },
-                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry }
+                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar },
+                { SymbolKind.Strawberry, SymbolKind.Kiss, SymbolKind.Strawberry },
+                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar }
             };
 
             var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
@@ -60,17 +60,17 @@ namespace SerenaysGambit.Tests
 
             Assert.That(middleRow, Is.Not.Null);
             Assert.That(middleRow.ResolvedSymbol, Is.EqualTo(SymbolKind.Strawberry));
-            Assert.That(middleRow.IsTripleJoker, Is.False);
+            Assert.That(middleRow.IsTripleKiss, Is.False);
         }
 
         [Test]
-        public void TripleJokerUsesTheSpecialMultiplierOnEveryWinningLine()
+        public void TripleKissUsesTheSpecialMultiplierOnEveryWinningLine()
         {
             var grid = new[,]
             {
-                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
-                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
-                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker }
+                { SymbolKind.Kiss, SymbolKind.Kiss, SymbolKind.Kiss },
+                { SymbolKind.Kiss, SymbolKind.Kiss, SymbolKind.Kiss },
+                { SymbolKind.Kiss, SymbolKind.Kiss, SymbolKind.Kiss }
             };
 
             var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
@@ -78,7 +78,7 @@ namespace SerenaysGambit.Tests
             Assert.That(score.Wins.Count, Is.EqualTo(8));
             Assert.That(score.ComboMultiplier, Is.EqualTo(9));
             Assert.That(score.PayoutKurus, Is.EqualTo(new BigInteger(3378240)));
-            Assert.That(score.Wins[0].IsTripleJoker, Is.True);
+            Assert.That(score.Wins[0].IsTripleKiss, Is.True);
         }
 
         [TestCase(0, 1)]
@@ -92,12 +92,41 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
+        public void ExponentialUpgradeMultipliersApplyCorrectly()
+        {
+            var config = GameRulesConfig.CreateDefault();
+            var modifiers = new RunModifiers(config);
+
+            // Verify starting values
+            Assert.That(modifiers.DollarValue, Is.EqualTo(5));
+            Assert.That(modifiers.CigaretteValue, Is.EqualTo(20));
+            Assert.That(modifiers.KissValue, Is.EqualTo(1));
+
+            // Improve Dollar
+            modifiers.ImproveSymbol(SymbolKind.Dollar, 8); // +8x
+            Assert.That(modifiers.DollarValue, Is.EqualTo(13)); // 5 + 8 = 13
+
+            // Improve Cigarette
+            modifiers.ImproveSymbol(SymbolKind.Cigarette, 16); // +16x
+            Assert.That(modifiers.CigaretteValue, Is.EqualTo(36)); // 20 + 16 = 36
+
+            // Improve Kiss
+            modifiers.ImproveSymbol(SymbolKind.Kiss, 64); // +64x
+            Assert.That(modifiers.KissValue, Is.EqualTo(65)); // 1 + 64 = 65
+
+            // Verify triple kiss calculation uses kiss multiplier
+            var basePayout = (GameBalance.BaseLinePayoutKurus * GameBalance.TripleKissMultiplierNumerator) / GameBalance.TripleKissMultiplierDenominator;
+            var expectedTripleKissPayout = basePayout * 65;
+            Assert.That(PayoutCalculator.CalculateLinePayout(SymbolKind.Kiss, modifiers, true), Is.EqualTo(expectedTripleKissPayout));
+        }
+
+        [Test]
         public void BatchFactorMultipliesTheFinalPayout()
         {
             var grid = new[,]
             {
                 { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
                 { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
             };
 
@@ -169,7 +198,7 @@ namespace SerenaysGambit.Tests
                 new GridPosition(0, 0),
                 new GridPosition(0, 1),
                 new GridPosition(0, 2));
-            var win = new PaylineWin(payline, SymbolKind.Banana, new BigInteger(1001), false);
+            var win = new PaylineWin(payline, SymbolKind.Cigarette, new BigInteger(1001), false);
             var score = new ScoredSpin(
                 new List<PaylineWin> { win },
                 new BigInteger(1001),
@@ -294,7 +323,7 @@ namespace SerenaysGambit.Tests
             var grid = new[,]
             {
                 { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
                 { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
             };
 
@@ -313,9 +342,9 @@ namespace SerenaysGambit.Tests
         {
             var grid = new[,]
             {
-                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
                 { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
+                { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
             };
             var modifiers = new RunModifiers();
             var baseline = SlotScoring.Evaluate(grid, modifiers, 1);
@@ -335,9 +364,9 @@ namespace SerenaysGambit.Tests
         {
             var grid = new[,]
             {
-                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
+                { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
                 { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
+                { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
             };
             var modifiers = new RunModifiers();
             modifiers.DoubleMoneyMultiplier();
@@ -413,6 +442,19 @@ namespace SerenaysGambit.Tests
             Assert.That(state.CashKurus, Is.EqualTo(new BigInteger(12345)));
             Assert.That(state.Modifiers.TemporaryFreeSpins, Is.EqualTo(0));
             Assert.That(state.RollsRemaining, Is.EqualTo(GameBalance.BaseRolls));
+        }
+
+        [Test]
+        public void ClearingAThresholdAddsUnusedRollsToTheNextThreshold()
+        {
+            var engine = new SlotGameEngine(7);
+            var state = engine.CreateNewRun();
+            state.CashKurus = state.CurrentTargetKurus;
+            state.RollsRemaining = 4;
+
+            Assert.That(engine.TrySettleThreshold(state), Is.True);
+            Assert.That(state.ThresholdLevel, Is.EqualTo(2));
+            Assert.That(state.RollsRemaining, Is.EqualTo(GameBalance.BaseRolls + 4));
         }
 
         [Test]
@@ -519,9 +561,9 @@ namespace SerenaysGambit.Tests
         {
             var configuredReels = new[]
             {
-                new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
-                new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
-                new[] { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry }
+                new[] { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
+                new[] { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
+                new[] { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar }
             };
             var config = new GameRulesConfig(configuredReels, 3, 7, 12, 3, 4, 6);
             var engine = new SlotGameEngine(23, config);
@@ -531,7 +573,7 @@ namespace SerenaysGambit.Tests
             Assert.That(state.RollsRemaining, Is.EqualTo(12));
             Assert.That(state.RemainingOrgans, Is.EqualTo(3));
             Assert.That(state.Modifiers.StrawberryValue, Is.EqualTo(3));
-            Assert.That(state.Modifiers.CherryValue, Is.EqualTo(7));
+            Assert.That(state.Modifiers.DollarValue, Is.EqualTo(7));
 
             state.ShopOffers.Clear();
             state.ShopOffers.Add(new ShopOffer(ShopOfferKind.StrawberryValue, BigInteger.Zero, "Strawberry Value +1x", "Test offer"));
@@ -546,7 +588,7 @@ namespace SerenaysGambit.Tests
             {
                 for (var column = 0; column < GameBalance.GridColumns; column++)
                 {
-                    Assert.That(spin.Grid[row, column], Is.EqualTo(SymbolKind.Cherry));
+                    Assert.That(spin.Grid[row, column], Is.EqualTo(SymbolKind.Dollar));
                 }
             }
 
@@ -564,10 +606,10 @@ namespace SerenaysGambit.Tests
             var firstRun = engine.CreateNewRun();
             var firstStrip = firstRun.Config.ReelStripAt(0);
 
-            firstRun.Config.ReplaceSymbolOnStrip(0, 0, SymbolKind.Apple);
-            firstStrip[1] = SymbolKind.Apple;
+            firstRun.Config.ReplaceSymbolOnStrip(0, 0, SymbolKind.Cigarette);
+            firstStrip[1] = SymbolKind.Cigarette;
 
-            Assert.That(firstRun.Config.ReelStripAt(0)[0], Is.EqualTo(SymbolKind.Apple));
+            Assert.That(firstRun.Config.ReelStripAt(0)[0], Is.EqualTo(SymbolKind.Cigarette));
             Assert.That(firstRun.Config.ReelStripAt(0)[1], Is.EqualTo(GameBalance.InitialReels[0][1]));
 
             var restarted = engine.CreateNewRun();
@@ -583,7 +625,7 @@ namespace SerenaysGambit.Tests
             var state = engine.CreateNewRun();
             for (var index = 0; index < GameBalance.ReelLength; index++)
             {
-                state.Config.ReplaceSymbolOnStrip(0, index, SymbolKind.Apple);
+                state.Config.ReplaceSymbolOnStrip(0, index, SymbolKind.Cigarette);
             }
 
             state.RollsRemaining = 1;
@@ -592,7 +634,7 @@ namespace SerenaysGambit.Tests
             Assert.That(result.Accepted, Is.True);
             for (var row = 0; row < GameBalance.GridRows; row++)
             {
-                Assert.That(result.Grid[row, 0], Is.EqualTo(SymbolKind.Apple));
+                Assert.That(result.Grid[row, 0], Is.EqualTo(SymbolKind.Cigarette));
             }
         }
 
@@ -658,17 +700,16 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
-        public void CannotSettleThresholdUnlessRollsAreDepleted()
+        public void CanSettleThresholdBeforeRollsAreDepleted()
         {
             var engine = new SlotGameEngine(42);
             var state = engine.CreateNewRun();
             state.CashKurus = state.CurrentTargetKurus;
             state.RollsRemaining = 1;
 
-            Assert.That(engine.TrySettleThreshold(state), Is.False);
-
-            state.RollsRemaining = 0;
             Assert.That(engine.TrySettleThreshold(state), Is.True);
+            Assert.That(state.ThresholdLevel, Is.EqualTo(2));
+            Assert.That(state.RollsRemaining, Is.EqualTo(GameBalance.BaseRolls + 1));
         }
 
         [Test]
@@ -729,9 +770,9 @@ namespace SerenaysGambit.Tests
             Assert.That(state.Stats.RollsUsed, Is.EqualTo(8));
             Assert.That(state.Stats.TotalEarnedKurus, Is.EqualTo(result.Score.PayoutKurus));
             Assert.That(state.Stats.GetSymbolStats(SymbolKind.Strawberry).WinningPaylineCount, Is.EqualTo(1));
-            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Cherry).WinningPaylineCount, Is.EqualTo(1));
-            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Banana).WinningPaylineCount, Is.EqualTo(1));
-            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Joker).WinningPaylineCount, Is.EqualTo(0));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Dollar).WinningPaylineCount, Is.EqualTo(1));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Cigarette).WinningPaylineCount, Is.EqualTo(1));
+            Assert.That(state.Stats.GetSymbolStats(SymbolKind.Kiss).WinningPaylineCount, Is.EqualTo(0));
 
             var attributedPayout = BigInteger.Zero;
             foreach (SymbolKind symbol in System.Enum.GetValues(typeof(SymbolKind)))
@@ -811,12 +852,12 @@ namespace SerenaysGambit.Tests
             var engine = new SlotGameEngine(1);
             var state = engine.CreateNewRun();
             state.ShopOffers.Clear();
-            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.CherryValue, new BigInteger(100), "Cherry", "Test offer"));
+            state.ShopOffers.Add(new ShopOffer(ShopOfferKind.DollarValue, new BigInteger(100), "Dollar", "Test offer"));
             state.CashKurus = BigInteger.Zero;
             string message;
 
             Assert.That(engine.TryPurchase(state, 0, out message), Is.False);
-            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.CherryValue), Is.EqualTo(0));
+            Assert.That(state.OwnedUpgradeCount(ShopOfferKind.DollarValue), Is.EqualTo(0));
         }
 
         [Test]
@@ -841,19 +882,19 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
-        public void TripleJokerSpinCountsOneJackpotAndEveryWinningPayline()
+        public void TripleKissSpinCountsOneJackpotAndEveryWinningPayline()
         {
-            var engine = new SlotGameEngine(1, CreateTripleJokerGrid);
+            var engine = new SlotGameEngine(1, CreateTripleKissGrid);
             var state = engine.CreateNewRun();
             state.RollsRemaining = 1;
 
             var result = engine.TrySpin(state, 1);
-            var tripleJokerStats = state.Stats.GetSymbolStats(SymbolKind.Joker);
+            var tripleKissStats = state.Stats.GetSymbolStats(SymbolKind.Kiss);
 
             Assert.That(result.Accepted, Is.True);
             Assert.That(state.Stats.JackpotsScored, Is.EqualTo(1));
-            Assert.That(tripleJokerStats.WinningPaylineCount, Is.EqualTo(result.Score.Wins.Count));
-            Assert.That(tripleJokerStats.GeneratedKurus, Is.EqualTo(result.Score.PayoutKurus));
+            Assert.That(tripleKissStats.WinningPaylineCount, Is.EqualTo(result.Score.Wins.Count));
+            Assert.That(tripleKissStats.GeneratedKurus, Is.EqualTo(result.Score.PayoutKurus));
         }
 
         [Test]
@@ -877,9 +918,9 @@ namespace SerenaysGambit.Tests
         {
             return new[,]
             {
-                { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Strawberry },
-                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry },
-                { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry }
+                { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Strawberry },
+                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar },
+                { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar }
             };
         }
 
@@ -888,8 +929,8 @@ namespace SerenaysGambit.Tests
             return new[,]
             {
                 { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
-                { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
+                { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
+                { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
             };
         }
 
@@ -901,35 +942,35 @@ namespace SerenaysGambit.Tests
                     return new[,]
                     {
                         { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
-                        { SymbolKind.Cherry, SymbolKind.Cherry, SymbolKind.Cherry },
-                        { SymbolKind.Banana, SymbolKind.Banana, SymbolKind.Banana }
+                        { SymbolKind.Dollar, SymbolKind.Dollar, SymbolKind.Dollar },
+                        { SymbolKind.Cigarette, SymbolKind.Cigarette, SymbolKind.Cigarette }
                     };
                 case PaylineGroup.Vertical:
                     return new[,]
                     {
-                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana },
-                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana },
-                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Banana }
+                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Cigarette },
+                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Cigarette },
+                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Cigarette }
                     };
                 case PaylineGroup.CrissCross:
                     return new[,]
                     {
-                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Strawberry },
-                        { SymbolKind.Cherry, SymbolKind.Strawberry, SymbolKind.Cherry },
-                        { SymbolKind.Strawberry, SymbolKind.Cherry, SymbolKind.Strawberry }
+                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Strawberry },
+                        { SymbolKind.Dollar, SymbolKind.Strawberry, SymbolKind.Dollar },
+                        { SymbolKind.Strawberry, SymbolKind.Dollar, SymbolKind.Strawberry }
                     };
                 default:
                     throw new System.ArgumentOutOfRangeException(nameof(group));
             }
         }
 
-        private static SymbolKind[,] CreateTripleJokerGrid()
+        private static SymbolKind[,] CreateTripleKissGrid()
         {
             return new[,]
             {
-                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
-                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker },
-                { SymbolKind.Joker, SymbolKind.Joker, SymbolKind.Joker }
+                { SymbolKind.Kiss, SymbolKind.Kiss, SymbolKind.Kiss },
+                { SymbolKind.Kiss, SymbolKind.Kiss, SymbolKind.Kiss },
+                { SymbolKind.Kiss, SymbolKind.Kiss, SymbolKind.Kiss }
             };
         }
 
@@ -969,6 +1010,88 @@ namespace SerenaysGambit.Tests
             // 2. Purchase base roll multiplier and check that multiplier is 4 instead of default 2
             Assert.That(engine.TryPurchase(state, 1, out _), Is.True);
             Assert.That(state.Modifiers.BaseRollMultiplier, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void ShopItemsAreFilteredByDisplayThreshold()
+        {
+            // Set up shop items with different DisplayThreshold requirements:
+            // - StrawberryValue: DisplayThreshold = ThresholdLevel.Threshold2
+            // - DollarValue: DisplayThreshold = ThresholdLevel.Threshold1
+            // - CigaretteValue: DisplayThreshold = ThresholdLevel.Any (always displayed)
+            var configs = new Dictionary<ShopOfferKind, ShopItemConfig>
+            {
+                { ShopOfferKind.StrawberryValue, new ShopItemConfig("Strawberry Boost", "Description", displayThreshold: ThresholdLevel.Threshold2) },
+                { ShopOfferKind.DollarValue, new ShopItemConfig("Dollar Boost", "Description", displayThreshold: ThresholdLevel.Threshold1) },
+                { ShopOfferKind.CigaretteValue, new ShopItemConfig("Cigarette Boost", "Description", displayThreshold: ThresholdLevel.Any) }
+            };
+
+            var config = new GameRulesConfig(
+                GameBalance.InitialReels,
+                1,
+                5,
+                GameBalance.BaseRolls,
+                GameBalance.OrganCount,
+                GameBalance.MaxThresholdLevel,
+                GameBalance.FreeSpinBundle,
+                configs);
+
+            var engine = new SlotGameEngine(42, config);
+            var state = engine.CreateNewRun();
+
+            // At ThresholdLevel = 1:
+            // DollarValue (1) and CigaretteValue (0) are allowed. StrawberryValue (2) is forbidden.
+            Assert.That(state.ThresholdLevel, Is.EqualTo(1));
+            foreach (var offer in state.ShopOffers)
+            {
+                Assert.That(offer.Kind, Is.Not.EqualTo(ShopOfferKind.StrawberryValue));
+            }
+
+            // Settle threshold to advance to level 2:
+            state.CashKurus = state.CurrentTargetKurus;
+            state.RollsRemaining = 0;
+            Assert.That(engine.TrySettleThreshold(state), Is.True);
+            Assert.That(state.ThresholdLevel, Is.EqualTo(2));
+
+            // At ThresholdLevel = 2:
+            // StrawberryValue (2) and CigaretteValue (0) are allowed. DollarValue (1) is forbidden.
+            foreach (var offer in state.ShopOffers)
+            {
+                Assert.That(offer.Kind, Is.Not.EqualTo(ShopOfferKind.DollarValue));
+            }
+        }
+
+        [Test]
+        public void GenerateShopDoublesOddsForOwnedUpgrades()
+        {
+            var config = GameRulesConfig.CreateDefault();
+            var engine = new SlotGameEngine(42, config);
+            var state = engine.CreateNewRun();
+
+            // Settle threshold to level 1 so DollarValue and CigaretteValue are candidates
+            // state.ThresholdLevel is already 1 by default
+            state.RecordOwnedUpgrade(ShopOfferKind.CigaretteValue);
+
+            int cigaretteCount = 0;
+            int dollarCount = 0;
+
+            for (int i = 0; i < 1000; i++)
+            {
+                state.AddRefreshTickets(1);
+                string msg;
+                Assert.That(engine.TryRefreshShop(state, out msg), Is.True);
+
+                foreach (var offer in state.ShopOffers)
+                {
+                    if (offer.Kind == ShopOfferKind.CigaretteValue) cigaretteCount++;
+                    if (offer.Kind == ShopOfferKind.DollarValue) dollarCount++;
+                }
+            }
+
+            // Since CigaretteValue is owned, its weight is 2. DollarValue is unowned, its weight is 1.
+            // Therefore, cigaretteCount should be significantly greater than dollarCount.
+            // Typically around double. We assert that it's at least 1.3 times greater.
+            Assert.That((double)cigaretteCount / dollarCount, Is.GreaterThan(1.3));
         }
     }
 }

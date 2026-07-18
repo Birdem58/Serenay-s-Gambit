@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 645baf3489d7c4e929d5abc19296b533, type: 3}
+  m_Name: CigaretteValue 4
+  m_EditorClassIdentifier: 
+  _kind: 4
+  _displayName: Cigarette Value +16x
+  _description: Permanently raises Cigarette line value.
+  _icon: {fileID: 1588499319, guid: a521cb704887949d4b59dd21f51b5e0a, type: 3}
+  _symbolImprovementDelta: 16
+  _baseRollMultiplierValue: 0
+  _costDivisor: 8
+  _displayThreshold: 5

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf02cdc0a6ab4b04845c38fdf829629a, type: 3}
+  m_Name: Kiss1000xGambit
+  m_EditorClassIdentifier: 
+  _kind: 2
+  _displayName: Kiss's 1000x
+  _description: A win containing a Kiss on the left reel pays 1000x. Each eligible copy has a 15% chance to replace one left-reel Kiss with a random fruit.
+  _accentColor: {r: 0.7, g: 0.3, b: 0.85, a: 1}
+  _shortLabel: K1K
+  _payoutMultiplier: 1000
+  _rollMultiplier: 1
+  _sacrificePercent: 0
+  _riskPercent: 15
+  _decayPerMiss: 0

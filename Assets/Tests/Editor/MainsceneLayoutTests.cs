@@ -41,6 +41,54 @@ namespace SerenaysGambit.Tests
             Assert.That(shop.offsetMin, Is.EqualTo(Vector2.zero));
             Assert.That(shop.offsetMax, Is.EqualTo(Vector2.zero));
 
+            var shelfBackground = shelf.Find("Background");
+            Assert.That(shelfBackground, Is.Not.Null, "VerticalShelfPanel needs an explicit background child.");
+            Assert.That(shelfBackground.GetSiblingIndex(), Is.EqualTo(0));
+            Assert.That(shelfBackground.GetComponent<Image>(), Is.Not.Null);
+            Assert.That(shelfBackground.GetComponent<Canvas>(), Is.Null,
+                "The shelf background must stay on the parent screen-space canvas.");
+            Assert.That(shelfBackground.GetComponent<LayoutElement>().ignoreLayout, Is.True);
+
+            var layeredTextNames = new[]
+            {
+                "TargetText",
+                "CashText",
+                "PayoutText",
+                "RoundText",
+                "RollsText",
+                "OwnedUpgradesHeading",
+                "OrgansHeading"
+            };
+
+            foreach (var textName in layeredTextNames)
+            {
+                var textContainer = shelf.Find(textName);
+                Assert.That(textContainer, Is.Not.Null);
+                Assert.That(textContainer.GetComponent<TextMeshProUGUI>(), Is.Null,
+                    textName + " should be a layout container so its background can render in front of the shelf.");
+
+                var textBackground = textContainer.Find("Background");
+                var textLabel = textContainer.Find("Label");
+                Assert.That(textBackground, Is.Not.Null);
+                Assert.That(textLabel, Is.Not.Null);
+                Assert.That(textBackground.GetSiblingIndex(), Is.EqualTo(0));
+                Assert.That(textLabel.GetSiblingIndex(), Is.EqualTo(1));
+                Assert.That(textBackground.GetComponent<Canvas>(), Is.Null);
+                Assert.That(textBackground.GetComponent<Image>(), Is.Not.Null);
+                Assert.That(textLabel.GetComponent<TextMeshProUGUI>(), Is.Not.Null);
+            }
+
+            var backgroundOnlyNames = new[] { "BatchControls", "OwnedUpgradesLayout", "OrgansText" };
+            foreach (var containerName in backgroundOnlyNames)
+            {
+                var textBackground = shelf.Find(containerName + "/Background");
+                Assert.That(textBackground, Is.Not.Null);
+                Assert.That(textBackground.GetSiblingIndex(), Is.EqualTo(0));
+                Assert.That(textBackground.GetComponent<Canvas>(), Is.Null);
+                Assert.That(textBackground.GetComponent<Image>(), Is.Not.Null);
+                Assert.That(textBackground.GetComponent<LayoutElement>().ignoreLayout, Is.True);
+            }
+
             Assert.That(Object.FindObjectOfType<EventSystem>(), Is.Not.Null);
             Assert.That(canvas.transform.Find("MainContent/SlotMachinePanel/SlotGrid"), Is.Not.Null);
             var leverPanel = canvas.transform.Find("MainContent/SlotMachinePanel/LeverPanel");
@@ -82,7 +130,7 @@ namespace SerenaysGambit.Tests
             var shelf = canvas.transform.Find("MainContent/VerticalShelfPanel");
             Assert.That(shelf, Is.Not.Null);
             Assert.That(shelf.Find("OwnedUpgradesText"), Is.Null);
-            Assert.That(shelf.Find("OwnedUpgradesHeading").GetComponent<TextMeshProUGUI>(), Is.Not.Null);
+            Assert.That(shelf.Find("OwnedUpgradesHeading").GetComponentInChildren<TextMeshProUGUI>(), Is.Not.Null);
 
             var layout = shelf.Find("OwnedUpgradesLayout");
             Assert.That(layout, Is.Not.Null);

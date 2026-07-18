@@ -33,7 +33,7 @@ namespace SerenaysGambit
             return new GameRulesConfig(
                 ExtractReelStrips(reelDefinitions, defaults),
                 FindSymbolValue(symbols, SymbolKind.Strawberry, defaults.StrawberryStartingValue),
-                FindSymbolValue(symbols, SymbolKind.Cherry, defaults.CherryStartingValue),
+                FindSymbolValue(symbols, SymbolKind.Dollar, defaults.DollarStartingValue),
                 PositiveOrDefault(balance == null ? 0 : balance.BaseRolls, defaults.BaseRolls),
                 PositiveOrDefault(balance == null ? 0 : balance.OrganCount, defaults.OrganCount),
                 PositiveOrDefault(balance == null ? 0 : balance.ThresholdCount, defaults.ThresholdCount),
@@ -104,9 +104,9 @@ namespace SerenaysGambit
             return fallback;
         }
 
-        private static Dictionary<ShopOfferKind, ShopItemConfig> CreateShopConfigs(ShopItemDefinition[] definitions)
+        private static List<KeyValuePair<ShopOfferKind, ShopItemConfig>> CreateShopConfigs(ShopItemDefinition[] definitions)
         {
-            var configs = new Dictionary<ShopOfferKind, ShopItemConfig>();
+            var configs = new List<KeyValuePair<ShopOfferKind, ShopItemConfig>>();
             if (definitions == null)
             {
                 return configs;
@@ -119,12 +119,16 @@ namespace SerenaysGambit
                     continue;
                 }
 
-                configs[definition.Kind] = new ShopItemConfig(
-                    definition.DisplayName, 
-                    definition.Description,
-                    definition.SymbolImprovementDelta,
-                    definition.BaseRollMultiplierValue,
-                    definition.CostDivisor);
+                configs.Add(new KeyValuePair<ShopOfferKind, ShopItemConfig>(
+                    definition.Kind,
+                    new ShopItemConfig(
+                        definition.DisplayName, 
+                        definition.Description,
+                        definition.SymbolImprovementDelta,
+                        definition.BaseRollMultiplierValue,
+                        definition.CostDivisor,
+                        definition.DisplayThreshold)
+                ));
             }
 
             return configs;

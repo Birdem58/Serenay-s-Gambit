@@ -26,6 +26,9 @@ namespace SerenaysGambit
         [Tooltip("Divisor applied to the current target money to calculate the item's purchase cost (Cost = Target / CostDivisor).")]
         [SerializeField] private int _costDivisor = 0;
 
+        [Tooltip("The specific threshold level where this item is displayed in the shop. If Any, displays in any threshold.")]
+        [SerializeField] private ThresholdLevel _displayThreshold = ThresholdLevel.Any;
+
         /// <summary>
         /// The category or type of shop offer.
         /// </summary>
@@ -62,6 +65,11 @@ namespace SerenaysGambit
         /// </summary>
         public int CostDivisor { get { return _costDivisor; } }
 
+        /// <summary>
+        /// The specific threshold level where this item is displayed in the shop.
+        /// </summary>
+        public ThresholdLevel DisplayThreshold { get { return _displayThreshold; } }
+
         public void Initialize(ShopOfferKind kind, string displayName, string description)
         {
             _kind = kind;
@@ -75,20 +83,22 @@ namespace SerenaysGambit
             _icon = icon;
         }
 
-        public void Initialize(ShopOfferKind kind, string displayName, string description, int symbolImprovementDelta, int baseRollMultiplierValue, int costDivisor)
+        public void Initialize(ShopOfferKind kind, string displayName, string description, int symbolImprovementDelta, int baseRollMultiplierValue, int costDivisor, ThresholdLevel displayThreshold = ThresholdLevel.Any)
         {
             Initialize(kind, displayName, description);
             _symbolImprovementDelta = symbolImprovementDelta;
             _baseRollMultiplierValue = baseRollMultiplierValue;
             _costDivisor = costDivisor;
+            _displayThreshold = displayThreshold;
         }
 
-        public void Initialize(ShopOfferKind kind, string displayName, string description, Sprite icon, int symbolImprovementDelta, int baseRollMultiplierValue, int costDivisor)
+        public void Initialize(ShopOfferKind kind, string displayName, string description, Sprite icon, int symbolImprovementDelta, int baseRollMultiplierValue, int costDivisor, ThresholdLevel displayThreshold = ThresholdLevel.Any)
         {
             Initialize(kind, displayName, description, icon);
             _symbolImprovementDelta = symbolImprovementDelta;
             _baseRollMultiplierValue = baseRollMultiplierValue;
             _costDivisor = costDivisor;
+            _displayThreshold = displayThreshold;
         }
     }
 }

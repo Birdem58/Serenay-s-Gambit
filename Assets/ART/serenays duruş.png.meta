@@ -1,0 +1,1592 @@
+fileFormatVersion: 2
+guid: 446ec3d06754844fba5cb30a65c162d4
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 3
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: "serenays durus\u0327_0"
+      rect:
+        serializedVersion: 2
+        x: 6973
+        y: 6546
+        width: 57
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e407cdb95fab54718aacb1bca9acb616
+      internalID: 2113905113
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_1"
+      rect:
+        serializedVersion: 2
+        x: 9066
+        y: 6522
+        width: 69
+        height: 68
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7a5164e11e8c34c14b90c70bfa8d98b9
+      internalID: -1142783487
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_2"
+      rect:
+        serializedVersion: 2
+        x: 9155
+        y: 6515
+        width: 60
+        height: 61
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f05d691a40d04486c887400769c5cb29
+      internalID: 256780733
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_3"
+      rect:
+        serializedVersion: 2
+        x: 9250
+        y: 6544
+        width: 205
+        height: 101
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fa849b204453e4ff6995784f910c8bf3
+      internalID: -1703218544
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_4"
+      rect:
+        serializedVersion: 2
+        x: 6634
+        y: 6294
+        width: 100
+        height: 176
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: af3d2b56a13da4771af5faf00f3b62da
+      internalID: 546487909
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_5"
+      rect:
+        serializedVersion: 2
+        x: 6847
+        y: 6467
+        width: 51
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9472bde8b31e14df1b5f021fb7cabefb
+      internalID: -995920480
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_6"
+      rect:
+        serializedVersion: 2
+        x: 9129
+        y: 6390
+        width: 71
+        height: 93
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f682a45f3f5ef4a5bbdb5cf2aa737f1c
+      internalID: -1485108475
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_7"
+      rect:
+        serializedVersion: 2
+        x: 9361
+        y: 6432
+        width: 67
+        height: 72
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 140f1b157a5dd48518682972b3aeae96
+      internalID: -1628602052
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_8"
+      rect:
+        serializedVersion: 2
+        x: 9496
+        y: 6438
+        width: 72
+        height: 71
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 107bdcf728e1443db930cb11302e76c2
+      internalID: -1242248453
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_9"
+      rect:
+        serializedVersion: 2
+        x: 5047
+        y: 4213
+        width: 2177
+        height: 2149
+      alignment: 9
+      pivot: {x: 0.48590198, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dffd7cb0e09b34cef8a93a419e5a4126
+      internalID: 915589373
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_10"
+      rect:
+        serializedVersion: 2
+        x: 6775
+        y: 6321
+        width: 56
+        height: 53
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 32bc90d847bec4dc9a81ba9ccf5f5cbf
+      internalID: -1708848550
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_11"
+      rect:
+        serializedVersion: 2
+        x: 6925
+        y: 6350
+        width: 56
+        height: 57
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 580d096d61f8947ab846d8ffc40d6523
+      internalID: -1115488340
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_12"
+      rect:
+        serializedVersion: 2
+        x: 6982
+        y: 6275
+        width: 63
+        height: 157
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 25f4802768289484082af4d0828f76fa
+      internalID: 1296801060
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_13"
+      rect:
+        serializedVersion: 2
+        x: 7133
+        y: 6313
+        width: 60
+        height: 60
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0c1be8829060346c4a8c5167297df36b
+      internalID: 1857256143
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_14"
+      rect:
+        serializedVersion: 2
+        x: 7663
+        y: 4181
+        width: 2069
+        height: 2173
+      alignment: 9
+      pivot: {x: 0.45055357, y: 0.5423715}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6eaebe141b7e04c0d90d45325c4b2357
+      internalID: 1535357427
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_15"
+      rect:
+        serializedVersion: 2
+        x: 8319
+        y: 6341
+        width: 67
+        height: 67
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b03cd4afea11047bbbddd5b89cc61d9a
+      internalID: -184158761
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_16"
+      rect:
+        serializedVersion: 2
+        x: 9041
+        y: 6316
+        width: 72
+        height: 77
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4258a23a56f0c46229cfaf1132d14594
+      internalID: 1587462784
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_17"
+      rect:
+        serializedVersion: 2
+        x: 9114
+        y: 6302
+        width: 62
+        height: 65
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1ab5035b15b3943f59ef541dcf0ae27e
+      internalID: -666631687
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_18"
+      rect:
+        serializedVersion: 2
+        x: 9356
+        y: 6326
+        width: 71
+        height: 70
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c85edfd35b9df4378bd41f96823f07fc
+      internalID: -1325072543
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_19"
+      rect:
+        serializedVersion: 2
+        x: 9590
+        y: 6321
+        width: 64
+        height: 62
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f0354cab0612d4ae8af6e0fb5e16da86
+      internalID: -1626484410
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_20"
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 4192
+        width: 2480
+        height: 2171
+      alignment: 9
+      pivot: {x: 0.4669988, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2005f1c3c4784c2cafd3c35fb581df8
+      internalID: 1463876585
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_21"
+      rect:
+        serializedVersion: 2
+        x: 2480
+        y: 4193
+        width: 2429
+        height: 2179
+      alignment: 9
+      pivot: {x: 0.5042118, y: 0.44835514}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 38b700979a907434da5c6ca321c5f2a2
+      internalID: -1488805299
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_22"
+      rect:
+        serializedVersion: 2
+        x: 7183
+        y: 5754
+        width: 60
+        height: 61
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b2fc67cdca34d4bcca3d15985eb52a82
+      internalID: 885016042
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_23"
+      rect:
+        serializedVersion: 2
+        x: 5036
+        y: 5682
+        width: 50
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5ce1a4a51d9e448d596dcba858cf388d
+      internalID: 1473949380
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_24"
+      rect:
+        serializedVersion: 2
+        x: 7433
+        y: 5553
+        width: 75
+        height: 103
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d82f3b27f0ef74836bed7d2c6889a8f4
+      internalID: -537809026
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_25"
+      rect:
+        serializedVersion: 2
+        x: 9816
+        y: 5513
+        width: 91
+        height: 94
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 04a35653dadeb48069a0aff5eb3571e1
+      internalID: -910865747
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_26"
+      rect:
+        serializedVersion: 2
+        x: 4911
+        y: 5451
+        width: 44
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3f2fdded9a2d2473ab73bde85f2c0a7e
+      internalID: -661754919
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_27"
+      rect:
+        serializedVersion: 2
+        x: 4868
+        y: 5446
+        width: 34
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f87f8c30fcf9b40ee916906303ed5629
+      internalID: -218492630
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_28"
+      rect:
+        serializedVersion: 2
+        x: 4819
+        y: 5441
+        width: 35
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e5833c441c7234449980bdfbabf94322
+      internalID: -1590341152
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_29"
+      rect:
+        serializedVersion: 2
+        x: 5046
+        y: 5207
+        width: 163
+        height: 134
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2f8b45a34e504013804d14c30d4ff1f
+      internalID: 1273094414
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_30"
+      rect:
+        serializedVersion: 2
+        x: 7482
+        y: 5255
+        width: 76
+        height: 80
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6725cab675383447e967655fbab636ac
+      internalID: -294027996
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_31"
+      rect:
+        serializedVersion: 2
+        x: 9716
+        y: 5275
+        width: 73
+        height: 71
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8bfb2480756b0485d9fc41f399017be6
+      internalID: -1806382369
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_32"
+      rect:
+        serializedVersion: 2
+        x: 7433
+        y: 5023
+        width: 33
+        height: 65
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 168bd46f6ba3646e3b826e4993945caa
+      internalID: 999865861
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_33"
+      rect:
+        serializedVersion: 2
+        x: 9759
+        y: 5018
+        width: 161
+        height: 95
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 973311edb00a34bf0bb4aa4b38aea500
+      internalID: -1199415123
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_34"
+      rect:
+        serializedVersion: 2
+        x: 7458
+        y: 4848
+        width: 75
+        height: 75
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4329fb9885c034aa09a63d8645412210
+      internalID: 1670541560
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_35"
+      rect:
+        serializedVersion: 2
+        x: 7569
+        y: 4737
+        width: 129
+        height: 171
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 509f699c5a109455c8e78e85a12e559b
+      internalID: 727048098
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_36"
+      rect:
+        serializedVersion: 2
+        x: 9652
+        y: 4661
+        width: 86
+        height: 107
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: eead7213a34ce4c59bdc6e76adb37bec
+      internalID: -889453669
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_37"
+      rect:
+        serializedVersion: 2
+        x: 9775
+        y: 4622
+        width: 65
+        height: 65
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0129947105e174fb2a734edcb526f7dc
+      internalID: 1510152161
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_38"
+      rect:
+        serializedVersion: 2
+        x: 9880
+        y: 4558
+        width: 40
+        height: 90
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 88cf3ab9baa8a4feda78137c5075775a
+      internalID: -1591789113
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_39"
+      rect:
+        serializedVersion: 2
+        x: 9881
+        y: 4424
+        width: 39
+        height: 117
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f7f58c3016dad485a93c16f8aef512f5
+      internalID: 1581236442
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_40"
+      rect:
+        serializedVersion: 2
+        x: 7472
+        y: 4287
+        width: 96
+        height: 98
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 446cd67d0cb904fc5a3c5d30a7d6c090
+      internalID: 852833655
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_41"
+      rect:
+        serializedVersion: 2
+        x: 8074
+        y: 4073
+        width: 104
+        height: 110
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 846c3beaccdb5413dae79e64c79ca332
+      internalID: 5551769
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_42"
+      rect:
+        serializedVersion: 2
+        x: 8494
+        y: 4104
+        width: 75
+        height: 79
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c42cb3cce59bf40bf80d12a3279e46af
+      internalID: 744137443
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_43"
+      rect:
+        serializedVersion: 2
+        x: 8998
+        y: 4117
+        width: 79
+        height: 84
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dab84c0849ca4451095a9375c227e2af
+      internalID: -338755143
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_44"
+      rect:
+        serializedVersion: 2
+        x: 9140
+        y: 4039
+        width: 196
+        height: 196
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c6bf47de0a8d243e080c9a51dc4835b8
+      internalID: -27554447
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_45"
+      rect:
+        serializedVersion: 2
+        x: 9322
+        y: 4122
+        width: 120
+        height: 158
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ccd4df171e18f4ec18dec44a514cfb7d
+      internalID: 123087789
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_46"
+      rect:
+        serializedVersion: 2
+        x: 9799
+        y: 4155
+        width: 82
+        height: 82
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 81fadae309c9a4d4aa3d49eddfe9b668
+      internalID: 607276359
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_47"
+      rect:
+        serializedVersion: 2
+        x: 8399
+        y: 4078
+        width: 74
+        height: 76
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 986e10dcce01d4c10a9e1b03ba97607a
+      internalID: -1624936310
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_48"
+      rect:
+        serializedVersion: 2
+        x: 8593
+        y: 4035
+        width: 74
+        height: 71
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5deabd02d77de46f08ee23e7c949b656
+      internalID: -1108851696
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_49"
+      rect:
+        serializedVersion: 2
+        x: 9341
+        y: 4034
+        width: 82
+        height: 86
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3af8a3458c87944a9a3b7d7f8f889caf
+      internalID: 1108442906
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_50"
+      rect:
+        serializedVersion: 2
+        x: 8331
+        y: 3992
+        width: 74
+        height: 75
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ed82ef9190e2b4e92a96f676212d68b8
+      internalID: 1937779263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_51"
+      rect:
+        serializedVersion: 2
+        x: 9479
+        y: 991
+        width: 441
+        height: 3070
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 73ad99a455e494a879918db1b68b1908
+      internalID: -1373989834
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_52"
+      rect:
+        serializedVersion: 2
+        x: 9276
+        y: 3879
+        width: 69
+        height: 72
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d6bd6d77f28854e57922b11565c6d834
+      internalID: -1388322829
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_55"
+      rect:
+        serializedVersion: 2
+        x: 764
+        y: 3322
+        width: 86
+        height: 89
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 53cf32107ea7741de85f1c9f4eedf209
+      internalID: 1186447604
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_56"
+      rect:
+        serializedVersion: 2
+        x: 852
+        y: 3298
+        width: 74
+        height: 79
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ff6c28c8044b8443980727fb58562fb8
+      internalID: -1809688445
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_58"
+      rect:
+        serializedVersion: 2
+        x: 1422
+        y: 3283
+        width: 101
+        height: 105
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4f2dddf950b094ec7b914a4c6f9b7aa8
+      internalID: -99644444
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_60"
+      rect:
+        serializedVersion: 2
+        x: 2158
+        y: 3191
+        width: 163
+        height: 148
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 37606710992324dcb82c494c413f3017
+      internalID: 2042979405
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_61"
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 168
+        width: 2760
+        height: 3217
+      alignment: 9
+      pivot: {x: 0.4518134, y: 0.5190807}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e02493431f5e2406bb60caa2458028fe
+      internalID: 980483700
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_62"
+      rect:
+        serializedVersion: 2
+        x: 1146
+        y: 3232
+        width: 72
+        height: 79
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 06815511b65c04069ac2c5a82c640454
+      internalID: -1351885780
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_63"
+      rect:
+        serializedVersion: 2
+        x: 2400
+        y: 2728
+        width: 85
+        height: 97
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0a7e922e4fff146f59a7cdb25937256d
+      internalID: -1173835768
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_64"
+      rect:
+        serializedVersion: 2
+        x: 2396
+        y: 2529
+        width: 76
+        height: 78
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7cc8763b476e74627a037b7a83a72153
+      internalID: -796722164
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_65"
+      rect:
+        serializedVersion: 2
+        x: 2352
+        y: 2087
+        width: 81
+        height: 81
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d9b323e220619445b9b09c409389c9af
+      internalID: 638002413
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_66"
+      rect:
+        serializedVersion: 2
+        x: 2357
+        y: 1815
+        width: 81
+        height: 85
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 369ef8b9a6b374e1c88c0c3dfc8e873b
+      internalID: -1262057714
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_67"
+      rect:
+        serializedVersion: 2
+        x: 2396
+        y: 1675
+        width: 86
+        height: 86
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4d45ddd7e2d4e424cb8a601618bb865e
+      internalID: 587734855
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_68"
+      rect:
+        serializedVersion: 2
+        x: 2154
+        y: 979
+        width: 230
+        height: 287
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 79634db7a16154baaa843040b916a7f6
+      internalID: 1420888688
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_69"
+      rect:
+        serializedVersion: 2
+        x: 2217
+        y: 686
+        width: 168
+        height: 173
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 715249befd0b64ce69fc0c9556d3b87e
+      internalID: -680045137
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "serenays durus\u0327_70"
+      rect:
+        serializedVersion: 2
+        x: 2406
+        y: 847
+        width: 76
+        height: 80
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b9c1a5262a6244426931761d86b49b5b
+      internalID: 822812011
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    nameFileIdTable:
+      "serenays durus\u0327_0": 2113905113
+      "serenays durus\u0327_1": -1142783487
+      "serenays durus\u0327_10": -1708848550
+      "serenays durus\u0327_11": -1115488340
+      "serenays durus\u0327_12": 1296801060
+      "serenays durus\u0327_13": 1857256143
+      "serenays durus\u0327_14": 1535357427
+      "serenays durus\u0327_15": -184158761
+      "serenays durus\u0327_16": 1587462784
+      "serenays durus\u0327_17": -666631687
+      "serenays durus\u0327_18": -1325072543
+      "serenays durus\u0327_19": -1626484410
+      "serenays durus\u0327_2": 256780733
+      "serenays durus\u0327_20": 1463876585
+      "serenays durus\u0327_21": -1488805299
+      "serenays durus\u0327_22": 885016042
+      "serenays durus\u0327_23": 1473949380
+      "serenays durus\u0327_24": -537809026
+      "serenays durus\u0327_25": -910865747
+      "serenays durus\u0327_26": -661754919
+      "serenays durus\u0327_27": -218492630
+      "serenays durus\u0327_28": -1590341152
+      "serenays durus\u0327_29": 1273094414
+      "serenays durus\u0327_3": -1703218544
+      "serenays durus\u0327_30": -294027996
+      "serenays durus\u0327_31": -1806382369
+      "serenays durus\u0327_32": 999865861
+      "serenays durus\u0327_33": -1199415123
+      "serenays durus\u0327_34": 1670541560
+      "serenays durus\u0327_35": 727048098
+      "serenays durus\u0327_36": -889453669
+      "serenays durus\u0327_37": 1510152161
+      "serenays durus\u0327_38": -1591789113
+      "serenays durus\u0327_39": 1581236442
+      "serenays durus\u0327_4": 546487909
+      "serenays durus\u0327_40": 852833655
+      "serenays durus\u0327_41": 5551769
+      "serenays durus\u0327_42": 744137443
+      "serenays durus\u0327_43": -338755143
+      "serenays durus\u0327_44": -27554447
+      "serenays durus\u0327_45": 123087789
+      "serenays durus\u0327_46": 607276359
+      "serenays durus\u0327_47": -1624936310
+      "serenays durus\u0327_48": -1108851696
+      "serenays durus\u0327_49": 1108442906
+      "serenays durus\u0327_5": -995920480
+      "serenays durus\u0327_50": 1937779263
+      "serenays durus\u0327_51": -1373989834
+      "serenays durus\u0327_52": -1388322829
+      "serenays durus\u0327_53": -1416526332
+      "serenays durus\u0327_54": 1545376145
+      "serenays durus\u0327_55": 1186447604
+      "serenays durus\u0327_56": -1809688445
+      "serenays durus\u0327_57": 1428911995
+      "serenays durus\u0327_58": -99644444
+      "serenays durus\u0327_59": -2081983444
+      "serenays durus\u0327_6": -1485108475
+      "serenays durus\u0327_60": 2042979405
+      "serenays durus\u0327_61": 980483700
+      "serenays durus\u0327_62": -1351885780
+      "serenays durus\u0327_63": -1173835768
+      "serenays durus\u0327_64": -796722164
+      "serenays durus\u0327_65": 638002413
+      "serenays durus\u0327_66": -1262057714
+      "serenays durus\u0327_67": 587734855
+      "serenays durus\u0327_68": 1420888688
+      "serenays durus\u0327_69": -680045137
+      "serenays durus\u0327_7": -1628602052
+      "serenays durus\u0327_70": 822812011
+      "serenays durus\u0327_8": -1242248453
+      "serenays durus\u0327_9": 915589373
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

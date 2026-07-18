@@ -13,12 +13,14 @@ namespace SerenaysGambit
         private SymbolKind[] _strip;
         private Func<SymbolKind, string> _labelFunc;
         private Func<SymbolKind, Color> _colorFunc;
-        private Func<SymbolKind, Sprite> _spriteFunc;
+        private Func<SymbolKind, Sprite> _rotationImageFunc;
+        private Func<SymbolKind, AnimationClip> _scoreAnimationFunc;
 
         private RectTransform _container;
         private readonly List<Image> _cellImages = new List<Image>();
         private readonly List<TextMeshProUGUI> _cellTexts = new List<TextMeshProUGUI>();
         private readonly List<Image> _symbolIcons = new List<Image>();
+        private readonly List<SymbolScoreAnimationPlayer> _scoreAnimationPlayers = new List<SymbolScoreAnimationPlayer>();
 
         private float _offset;
         private float _currentScrollY;
@@ -27,6 +29,22 @@ namespace SerenaysGambit
         private int _stopIndex;
 
         public bool IsAnimating { get; private set; }
+
+        public bool AreScoreAnimationsPlaying
+        {
+            get
+            {
+                for (var index = 0; index < _scoreAnimationPlayers.Count; index++)
+                {
+                    if (_scoreAnimationPlayers[index] != null && _scoreAnimationPlayers[index].IsPlaying)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
         public int StopIndex => _stopIndex;
 
         public Image GetCellImage(int row)
@@ -54,13 +72,15 @@ namespace SerenaysGambit
             SymbolKind[] strip,
             Func<SymbolKind, string> labelFunc,
             Func<SymbolKind, Color> colorFunc,
-            Func<SymbolKind, Sprite> spriteFunc)
+            Func<SymbolKind, Sprite> rotationImageFunc,
+            Func<SymbolKind, AnimationClip> scoreAnimationFunc = null)
         {
             _column = column;
             _strip = (SymbolKind[])strip.Clone();
             _labelFunc = labelFunc;
             _colorFunc = colorFunc;
-            _spriteFunc = spriteFunc;
+            _rotationImageFunc = rotationImageFunc;
+            _scoreAnimationFunc = scoreAnimationFunc;
 
             // 1. Find existing 3 cells first
             var originalCells = new List<RectTransform>();
@@ -136,6 +156,10 @@ namespace SerenaysGambit
                 cell.anchorMin = new Vector2(0.06f, 1f);
                 cell.anchorMax = new Vector2(0.94f, 1f);
                 cell.pivot = new Vector2(0.5f, 0.5f);
+                // The scene cells get their height from their original vertical anchors.
+                // After moving them under the top-anchored strip content those anchors no
+                // longer contribute any height, so keep one reel step as an explicit size.
+                cell.sizeDelta = new Vector2(0f, _offset);
 
                 // Position cell at (-0.5f - i) * _offset so it aligns with rows 0, 1, 2
                 cell.anchoredPosition = new Vector2(0f, (-0.5f - i) * _offset);
@@ -166,7 +190,21 @@ namespace SerenaysGambit
                 {
                     iconImg = iconTrans.GetComponent<Image>();
                 }
+
+                if (iconImg == null)
+                {
+                    iconImg = iconTrans.gameObject.AddComponent<Image>();
+                }
+
+                iconImg.preserveAspect = true;
                 _symbolIcons.Add(iconImg);
+
+                var animationPlayer = iconImg.GetComponent<SymbolScoreAnimationPlayer>();
+                if (animationPlayer == null)
+                {
+                    animationPlayer = iconImg.gameObject.AddComponent<SymbolScoreAnimationPlayer>();
+                }
+                _scoreAnimationPlayers.Add(animationPlayer);
             }
 
             ResetToStart();
@@ -184,6 +222,7 @@ namespace SerenaysGambit
 
         public void Clear()
         {
+            StopScoreAnimations();
             _currentScrollY = 0f;
             _container.anchoredPosition = Vector2.zero;
             _isSpinning = false;
@@ -204,6 +243,7 @@ namespace SerenaysGambit
 
         public void UpdateStrip(SymbolKind[] newStrip)
         {
+            StopScoreAnimations();
             _strip = (SymbolKind[])newStrip.Clone();
             UpdateCellVisuals();
         }
@@ -215,7 +255,13 @@ namespace SerenaysGambit
             for (int i = 0; i < _cellTexts.Count; i++)
             {
                 var symbol = _strip[i % _strip.Length];
-                var sprite = _spriteFunc?.Invoke(symbol);
+                var sprite = _rotationImageFunc?.Invoke(symbol);
+                var scoreAnimation = _scoreAnimationFunc?.Invoke(symbol);
+
+                if (i < _scoreAnimationPlayers.Count && _scoreAnimationPlayers[i] != null)
+                {
+                    _scoreAnimationPlayers[i].Configure(sprite, scoreAnimation);
+                }
 
                 if (sprite != null)
                 {
@@ -248,10 +294,31 @@ namespace SerenaysGambit
 
         public void StartSpin(float speed)
         {
+            StopScoreAnimations();
             _spinSpeed = speed;
             _isSpinning = true;
             IsAnimating = true;
             UpdateCellVisuals(); // Ensure latest upgrades/colors are visible
+        }
+
+        public void PlayScoreAnimation(int row)
+        {
+            int index = _stopIndex + row;
+            if (index >= 0 && index < _scoreAnimationPlayers.Count)
+            {
+                _scoreAnimationPlayers[index].PlayOneShot();
+            }
+        }
+
+        public void StopScoreAnimations()
+        {
+            for (var index = 0; index < _scoreAnimationPlayers.Count; index++)
+            {
+                if (_scoreAnimationPlayers[index] != null)
+                {
+                    _scoreAnimationPlayers[index].StopAndRestore();
+                }
+            }
         }
 
         public void StopSpin(int targetStopIndex, float duration, Action onComplete)
