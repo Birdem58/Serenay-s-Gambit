@@ -31,6 +31,14 @@ namespace SerenaysGambit
         CrissCross
     }
 
+    public enum GambitKind
+    {
+        Strawberry,
+        BatchTen,
+        Joker1000x,
+        AppleDecay
+    }
+
     public enum ShopOfferKind
     {
         StrawberryValue,
@@ -183,12 +191,36 @@ namespace SerenaysGambit
         public int CostDivisor { get; private set; }
     }
 
+    public sealed class GambitItemConfig
+    {
+        public GambitItemConfig(
+            int payoutMultiplier = 1,
+            int rollMultiplier = 1,
+            int sacrificePercent = 0,
+            int riskPercent = 0,
+            int decayPerMiss = 0)
+        {
+            PayoutMultiplier = Math.Max(1, payoutMultiplier);
+            RollMultiplier = Math.Max(1, rollMultiplier);
+            SacrificePercent = Math.Max(0, Math.Min(100, sacrificePercent));
+            RiskPercent = Math.Max(0, Math.Min(100, riskPercent));
+            DecayPerMiss = Math.Max(0, decayPerMiss);
+        }
+
+        public int PayoutMultiplier { get; private set; }
+        public int RollMultiplier { get; private set; }
+        public int SacrificePercent { get; private set; }
+        public int RiskPercent { get; private set; }
+        public int DecayPerMiss { get; private set; }
+    }
+
     // A Unity-free snapshot of authored content. Unity ScriptableObjects are converted to this
     // before a run starts so the simulation remains deterministic and easy to test.
     public sealed class GameRulesConfig
     {
         private readonly SymbolKind[][] _reelStrips;
         private readonly Dictionary<ShopOfferKind, ShopItemConfig> _shopItemConfigs;
+        private readonly Dictionary<GambitKind, GambitItemConfig> _gambitItemConfigs;
 
         private readonly Dictionary<SymbolKind, int> _startingValues = new Dictionary<SymbolKind, int>();
 
@@ -201,7 +233,8 @@ namespace SerenaysGambit
             int thresholdCount,
             int freeSpinBundle,
             IDictionary<ShopOfferKind, ShopItemConfig> shopItemConfigs = null,
-            IDictionary<SymbolKind, int> customStartingValues = null)
+            IDictionary<SymbolKind, int> customStartingValues = null,
+            IDictionary<GambitKind, GambitItemConfig> gambitItemConfigs = null)
         {
             if (reelStrips == null)
             {
@@ -238,6 +271,17 @@ namespace SerenaysGambit
             _shopItemConfigs = shopItemConfigs == null
                 ? new Dictionary<ShopOfferKind, ShopItemConfig>()
                 : new Dictionary<ShopOfferKind, ShopItemConfig>(shopItemConfigs);
+            _gambitItemConfigs = CreateDefaultGambitConfigs();
+            if (gambitItemConfigs != null)
+            {
+                foreach (var kvp in gambitItemConfigs)
+                {
+                    if (Enum.IsDefined(typeof(GambitKind), kvp.Key) && kvp.Value != null)
+                    {
+                        _gambitItemConfigs[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
 
             _startingValues[SymbolKind.Strawberry] = strawberryStartingValue;
             _startingValues[SymbolKind.Cherry] = cherryStartingValue;
@@ -302,6 +346,12 @@ namespace SerenaysGambit
             return _shopItemConfigs.TryGetValue(kind, out config) ? config : null;
         }
 
+        public GambitItemConfig FindGambitItemConfig(GambitKind kind)
+        {
+            GambitItemConfig config;
+            return _gambitItemConfigs.TryGetValue(kind, out config) ? config : null;
+        }
+
         // Reel strips can change during a run (for example, when a Joker is lost),
         // so every new run needs an independent copy of the authored rules.
         public GameRulesConfig CreateRunCopy()
@@ -315,7 +365,8 @@ namespace SerenaysGambit
                 ThresholdCount,
                 FreeSpinBundle,
                 _shopItemConfigs,
-                _startingValues);
+                _startingValues,
+                _gambitItemConfigs);
         }
 
         public static GameRulesConfig CreateDefault()
@@ -327,7 +378,21 @@ namespace SerenaysGambit
                 GameBalance.BaseRolls,
                 GameBalance.OrganCount,
                 GameBalance.MaxThresholdLevel,
-                GameBalance.FreeSpinBundle);
+                GameBalance.FreeSpinBundle,
+                null,
+                null,
+                CreateDefaultGambitConfigs());
+        }
+
+        private static Dictionary<GambitKind, GambitItemConfig> CreateDefaultGambitConfigs()
+        {
+            return new Dictionary<GambitKind, GambitItemConfig>
+            {
+                { GambitKind.Strawberry, new GambitItemConfig(payoutMultiplier: 10, sacrificePercent: 25) },
+                { GambitKind.BatchTen, new GambitItemConfig(rollMultiplier: 10) },
+                { GambitKind.Joker1000x, new GambitItemConfig(payoutMultiplier: 1000, riskPercent: 15) },
+                { GambitKind.AppleDecay, new GambitItemConfig(payoutMultiplier: 5, decayPerMiss: 1) }
+            };
         }
     }
 
@@ -336,6 +401,7 @@ namespace SerenaysGambit
         private readonly GameRulesConfig _config;
         private readonly Dictionary<SymbolKind, int> _symbolValues = new Dictionary<SymbolKind, int>();
         private readonly Dictionary<PaylineGroup, int> _matchCountMultiplierIndexes = new Dictionary<PaylineGroup, int>();
+        private readonly Dictionary<GambitKind, int> _gambitCounts = new Dictionary<GambitKind, int>();
 
         public RunModifiers() : this(GameRulesConfig.CreateDefault())
         {
@@ -375,10 +441,51 @@ namespace SerenaysGambit
         public int VerticalMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.Vertical); } }
         public int CrissCrossMatchCountMultiplier { get { return MatchCountMultiplier(PaylineGroup.CrissCross); } }
 
-        public int StrawberryGambitCount { get; set; }
-        public int BatchTenGambitCount { get; set; }
-        public int Joker1000xGambitCount { get; set; }
-        public int AppleDecayGambitCount { get; set; }
+        public int StrawberryGambitCount
+        {
+            get { return GambitCount(GambitKind.Strawberry); }
+            set { SetGambitCount(GambitKind.Strawberry, value); }
+        }
+
+        public int BatchTenGambitCount
+        {
+            get { return GambitCount(GambitKind.BatchTen); }
+            set { SetGambitCount(GambitKind.BatchTen, value); }
+        }
+
+        public int Joker1000xGambitCount
+        {
+            get { return GambitCount(GambitKind.Joker1000x); }
+            set { SetGambitCount(GambitKind.Joker1000x, value); }
+        }
+
+        public int AppleDecayGambitCount
+        {
+            get { return GambitCount(GambitKind.AppleDecay); }
+            set { SetGambitCount(GambitKind.AppleDecay, value); }
+        }
+
+        public int GambitCount(GambitKind kind)
+        {
+            int count;
+            return _gambitCounts.TryGetValue(kind, out count) ? count : 0;
+        }
+
+        public void AddGambit(GambitKind kind)
+        {
+            var currentCount = GambitCount(kind);
+            SetGambitCount(kind, currentCount == int.MaxValue ? int.MaxValue : currentCount + 1);
+        }
+
+        public GambitItemConfig GambitConfig(GambitKind kind)
+        {
+            return _config.FindGambitItemConfig(kind);
+        }
+
+        private void SetGambitCount(GambitKind kind, int count)
+        {
+            _gambitCounts[kind] = Math.Max(0, count);
+        }
 
         public BigInteger BaseOutputMultiplier
         {
@@ -422,14 +529,16 @@ namespace SerenaysGambit
                 long baseRolls = (long)_config.BaseRolls * BaseRollMultiplier + TemporaryFreeSpins;
                 if (BatchTenGambitCount > 0)
                 {
+                    var batchMultiplierConfig = GambitConfig(GambitKind.BatchTen);
+                    var batchMultiplier = batchMultiplierConfig == null ? 10 : batchMultiplierConfig.RollMultiplier;
                     for (int i = 0; i < BatchTenGambitCount; i++)
                     {
-                        if (baseRolls > int.MaxValue / 10)
+                        if (baseRolls > int.MaxValue / batchMultiplier)
                         {
                             return int.MaxValue;
                         }
 
-                        baseRolls *= 10;
+                        baseRolls *= batchMultiplier;
                     }
                 }
 
@@ -909,10 +1018,12 @@ namespace SerenaysGambit
 
                 if (modifiers.AppleDecayGambitCount > 0 && win.ResolvedSymbol == SymbolKind.Apple)
                 {
+                    var appleConfig = modifiers.GambitConfig(GambitKind.AppleDecay);
+                    var applePayoutMultiplier = appleConfig == null ? 5 : appleConfig.PayoutMultiplier;
                     BigInteger appleMult = BigInteger.One;
                     for (int i = 0; i < modifiers.AppleDecayGambitCount; i++)
                     {
-                        appleMult *= 5;
+                        appleMult *= applePayoutMultiplier;
                     }
                     win.FinalPayoutKurus *= appleMult;
                 }
@@ -939,9 +1050,11 @@ namespace SerenaysGambit
 
                 if (scoredJokerOnLeftReel)
                 {
+                    var jokerConfig = modifiers.GambitConfig(GambitKind.Joker1000x);
+                    var jokerPayoutMultiplier = jokerConfig == null ? 1000 : jokerConfig.PayoutMultiplier;
                     for (int i = 0; i < modifiers.Joker1000xGambitCount; i++)
                     {
-                        overallMultiplier *= 1000;
+                        overallMultiplier *= jokerPayoutMultiplier;
                     }
                 }
             }
@@ -978,10 +1091,12 @@ namespace SerenaysGambit
                     int count = strawberryPositions.Count;
                     if (count > 0)
                     {
+                        var strawberryConfig = modifiers.GambitConfig(GambitKind.Strawberry);
+                        var strawberryPayoutMultiplier = strawberryConfig == null ? 10 : strawberryConfig.PayoutMultiplier;
                         BigInteger strawberryMult = BigInteger.One;
                         for (int i = 0; i < modifiers.StrawberryGambitCount; i++)
                         {
-                            strawberryMult *= (10 * count);
+                            strawberryMult *= (strawberryPayoutMultiplier * count);
                         }
                         overallMultiplier *= strawberryMult;
                     }
@@ -1002,10 +1117,12 @@ namespace SerenaysGambit
 
                     if (count > 0)
                     {
+                        var strawberryConfig = modifiers.GambitConfig(GambitKind.Strawberry);
+                        var sacrificePercent = strawberryConfig == null ? 25 : strawberryConfig.SacrificePercent;
                         double multiplier = 1.0;
                         for (int i = 0; i < modifiers.StrawberryGambitCount; i++)
                         {
-                            multiplier *= Math.Max(0.0, 1.0 - 0.25 * count);
+                            multiplier *= Math.Max(0.0, 1.0 - (sacrificePercent / 100.0) * count);
                         }
 
                         finalPayout = (finalPayout * (long)(multiplier * 10000)) / 10000;
@@ -1133,6 +1250,8 @@ namespace SerenaysGambit
             // Process Left Reel Joker Loss Chance
             if (state.Modifiers.Joker1000xGambitCount > 0)
             {
+                var jokerConfig = state.Modifiers.GambitConfig(GambitKind.Joker1000x);
+                var jokerRiskPercent = jokerConfig == null ? 15 : jokerConfig.RiskPercent;
                 bool scoredJokerOnLeftReel = false;
                 foreach (var win in score.Wins)
                 {
@@ -1152,7 +1271,7 @@ namespace SerenaysGambit
                     int jokersLost = 0;
                     for (int i = 0; i < state.Modifiers.Joker1000xGambitCount; i++)
                     {
-                        if (_random.Next(100) < 15)
+                        if (_random.Next(100) < jokerRiskPercent)
                         {
                             jokersLost++;
                         }
@@ -1196,6 +1315,8 @@ namespace SerenaysGambit
             // Process Apple Decay Absence Check
             if (state.Modifiers.AppleDecayGambitCount > 0)
             {
+                var appleConfig = state.Modifiers.GambitConfig(GambitKind.AppleDecay);
+                var appleDecayPerMiss = appleConfig == null ? 1 : appleConfig.DecayPerMiss;
                 bool hasApple = false;
                 for (int r = 0; r < GameBalance.GridRows; r++)
                 {
@@ -1212,7 +1333,7 @@ namespace SerenaysGambit
 
                 if (!hasApple)
                 {
-                    state.Modifiers.DecayApple(state.Modifiers.AppleDecayGambitCount);
+                    state.Modifiers.DecayApple(appleDecayPerMiss * state.Modifiers.AppleDecayGambitCount);
                     result.AppleDecayed = true;
                     result.Message += $" (Apple decayed to {state.Modifiers.SymbolValue(SymbolKind.Apple)}x!)";
                 }
@@ -1729,7 +1850,7 @@ namespace SerenaysGambit
             var absolute = BigInteger.Abs(kurus);
             var whole = absolute / 100;
             var fraction = (int)(absolute % 100);
-            return (negative ? "-" : string.Empty) + "TL " + GroupDigits(whole.ToString()) + "." + fraction.ToString("D2");
+            return (negative ? "-" : string.Empty) + GroupDigits(whole.ToString()) + "." + fraction.ToString("D2") + " TL";
         }
 
         private static string GroupDigits(string digits)

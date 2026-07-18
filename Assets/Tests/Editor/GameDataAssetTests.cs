@@ -70,5 +70,51 @@ namespace SerenaysGambit.Tests
             Assert.That(crissCross, Is.Not.Null);
             Assert.That(crissCross.Kind, Is.EqualTo(ShopOfferKind.CrissCrossMatchMultiplier));
         }
+
+        [Test]
+        public void GambitItemAssetsExposeEveryThresholdChoice()
+        {
+            var strawberry = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/StrawberryGambit.asset");
+            var batchTen = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/BatchTenGambit.asset");
+            var joker = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/Joker1000xGambit.asset");
+            var apple = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/AppleDecayGambit.asset");
+
+            Assert.That(strawberry, Is.Not.Null);
+            Assert.That(strawberry.Kind, Is.EqualTo(GambitKind.Strawberry));
+            Assert.That(strawberry.PayoutMultiplier, Is.EqualTo(10));
+            Assert.That(strawberry.SacrificePercent, Is.EqualTo(25));
+            Assert.That(batchTen, Is.Not.Null);
+            Assert.That(batchTen.Kind, Is.EqualTo(GambitKind.BatchTen));
+            Assert.That(batchTen.RollMultiplier, Is.EqualTo(10));
+            Assert.That(joker, Is.Not.Null);
+            Assert.That(joker.Kind, Is.EqualTo(GambitKind.Joker1000x));
+            Assert.That(joker.PayoutMultiplier, Is.EqualTo(1000));
+            Assert.That(joker.RiskPercent, Is.EqualTo(15));
+            Assert.That(apple, Is.Not.Null);
+            Assert.That(apple.Kind, Is.EqualTo(GambitKind.AppleDecay));
+            Assert.That(apple.PayoutMultiplier, Is.EqualTo(5));
+            Assert.That(apple.DecayPerMiss, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AuthoredGambitValuesBuildTheRuntimeConfig()
+        {
+            var strawberry = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/StrawberryGambit.asset");
+            var batchTen = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/BatchTenGambit.asset");
+            var joker = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/Joker1000xGambit.asset");
+            var apple = AssetDatabase.LoadAssetAtPath<GambitItemDefinition>("Assets/Resources/SerenaysGambit/Data/Gambits/AppleDecayGambit.asset");
+
+            var config = RuntimeGameConfigFactory.Create(
+                null,
+                null,
+                null,
+                null,
+                new[] { strawberry, batchTen, joker, apple });
+
+            Assert.That(config.FindGambitItemConfig(GambitKind.Strawberry).PayoutMultiplier, Is.EqualTo(strawberry.PayoutMultiplier));
+            Assert.That(config.FindGambitItemConfig(GambitKind.BatchTen).RollMultiplier, Is.EqualTo(batchTen.RollMultiplier));
+            Assert.That(config.FindGambitItemConfig(GambitKind.Joker1000x).RiskPercent, Is.EqualTo(joker.RiskPercent));
+            Assert.That(config.FindGambitItemConfig(GambitKind.AppleDecay).DecayPerMiss, Is.EqualTo(apple.DecayPerMiss));
+        }
     }
 }

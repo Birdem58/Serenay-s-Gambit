@@ -11,10 +11,12 @@ namespace SerenaysGambit
             SymbolDefinition[] symbols,
             ReelDefinition[] reelDefinitions,
             ShopItemDefinition[] shopItems,
-            BalanceDefinition balance)
+            BalanceDefinition balance,
+            GambitItemDefinition[] gambitItems = null)
         {
             var defaults = GameRulesConfig.CreateDefault();
             var shopConfigs = CreateShopConfigs(shopItems);
+            var gambitConfigs = CreateGambitConfigs(gambitItems);
 
             var customStartingValues = new Dictionary<SymbolKind, int>();
             if (symbols != null)
@@ -37,7 +39,8 @@ namespace SerenaysGambit
                 PositiveOrDefault(balance == null ? 0 : balance.ThresholdCount, defaults.ThresholdCount),
                 NonNegativeOrDefault(balance == null ? -1 : balance.FreeSpinBundle, defaults.FreeSpinBundle),
                 shopConfigs,
-                customStartingValues);
+                customStartingValues,
+                gambitConfigs);
         }
 
         private static SymbolKind[][] ExtractReelStrips(ReelDefinition[] definitions, GameRulesConfig defaults)
@@ -122,6 +125,32 @@ namespace SerenaysGambit
                     definition.SymbolImprovementDelta,
                     definition.BaseRollMultiplierValue,
                     definition.CostDivisor);
+            }
+
+            return configs;
+        }
+
+        private static Dictionary<GambitKind, GambitItemConfig> CreateGambitConfigs(GambitItemDefinition[] definitions)
+        {
+            var configs = new Dictionary<GambitKind, GambitItemConfig>();
+            if (definitions == null)
+            {
+                return configs;
+            }
+
+            foreach (var definition in definitions)
+            {
+                if (definition == null || !Enum.IsDefined(typeof(GambitKind), definition.Kind))
+                {
+                    continue;
+                }
+
+                configs[definition.Kind] = new GambitItemConfig(
+                    definition.PayoutMultiplier,
+                    definition.RollMultiplier,
+                    definition.SacrificePercent,
+                    definition.RiskPercent,
+                    definition.DecayPerMiss);
             }
 
             return configs;

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf02cdc0a6ab4b04845c38fdf829629a, type: 3}
+  m_Name: StrawberryGambit
+  m_EditorClassIdentifier: 
+  _kind: 0
+  _displayName: Strawberry Gambit
+  _description: Strawberry wins pay 10x per Strawberry symbol. If no Strawberry win occurs, reduce total output by 25% per Strawberry on the grid.
+  _accentColor: {r: 0.85, g: 0.2, b: 0.3, a: 1}
+  _shortLabel: SG
+  _payoutMultiplier: 10
+  _rollMultiplier: 1
+  _sacrificePercent: 25
+  _riskPercent: 0
+  _decayPerMiss: 0

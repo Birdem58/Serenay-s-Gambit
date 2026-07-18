@@ -20,11 +20,13 @@ namespace SerenaysGambit
         private SymbolDefinition[] _symbolDefinitions;
         private ReelDefinition[] _reelDefinitions;
         private ShopItemDefinition[] _shopItemDefinitions;
+        private GambitItemDefinition[] _gambitItemDefinitions;
         private BalanceDefinition _balanceDefinition;
         private GameRulesConfig _rulesConfig;
         private readonly Dictionary<ShopOfferKind, ShopItemDefinition> _shopItemDefinitionsByKind = new Dictionary<ShopOfferKind, ShopItemDefinition>();
+        private readonly Dictionary<GambitKind, GambitItemDefinition> _gambitItemDefinitionsByKind = new Dictionary<GambitKind, GambitItemDefinition>();
         private readonly Dictionary<ShopOfferKind, OwnedUpgradeView> _ownedUpgradeViews = new Dictionary<ShopOfferKind, OwnedUpgradeView>();
-        private readonly Dictionary<string, OwnedUpgradeView> _ownedGambitViews = new Dictionary<string, OwnedUpgradeView>();
+        private readonly Dictionary<GambitKind, OwnedUpgradeView> _ownedGambitViews = new Dictionary<GambitKind, OwnedUpgradeView>();
         private RectTransform _ownedGambitsLayout;
         private GameObject _gambitOverlay;
 
@@ -37,13 +39,18 @@ namespace SerenaysGambit
         private readonly bool[] _hasOriginalReelPositions = new bool[GameBalance.GridColumns];
 
         [SerializeField] private RewardAnimationSettings _animationSettings;
-        private readonly List<GameObject> _coinPool = new List<GameObject>();
+        private readonly List<GameObject> _rewardTextPool = new List<GameObject>();
+        private readonly List<GameObject> _allRewardTextObjects = new List<GameObject>();
 
         private float FirstWinPulseDuration => _animationSettings != null ? _animationSettings.FirstWinPulseDuration : 0.6f;
         private float MinimumWinPulseDuration => _animationSettings != null ? _animationSettings.MinimumWinPulseDuration : 0.025f;
-        private int MaximumRewardPulseWaves => _animationSettings != null ? _animationSettings.MaximumRewardPulseWaves : 25;
-        private int MaximumCoinFlightsPerCellPerPulse => _animationSettings != null ? _animationSettings.MaximumCoinFlightsPerCellPerPulse : 12;
-        private float RewardPulseSpeedIncrease => _animationSettings != null ? _animationSettings.RewardPulseSpeedIncrease : 0.08f;
+        private float RewardTextRiseDistance => _animationSettings != null ? _animationSettings.RewardTextRiseDistance : 90f;
+        private float RewardTextFadeDuration => _animationSettings != null ? _animationSettings.RewardTextFadeDuration : 0.32f;
+        private float RewardTextStartScale => _animationSettings != null ? _animationSettings.RewardTextStartScale : 0.75f;
+        private float RewardTextPeakScale => _animationSettings != null ? _animationSettings.RewardTextPeakScale : 1.08f;
+        private float RewardTextHorizontalSpread => _animationSettings != null ? _animationSettings.RewardTextHorizontalSpread : 28f;
+        private float MultiplierStepDuration => _animationSettings != null ? _animationSettings.MultiplierStepDuration : 0.24f;
+        private float QueueSpeedupPerEvent => _animationSettings != null ? _animationSettings.QueueSpeedupPerEvent : 0.08f;
 
         private TextMeshProUGUI _cashText;
         private TextMeshProUGUI _targetText;
@@ -79,13 +86,14 @@ namespace SerenaysGambit
         private GameObject _victoryOverlay;
         private TextMeshProUGUI _gameOverRunStatsText;
         private TextMeshProUGUI _victoryRunStatsText;
+        private Canvas _gameCanvas;
+        private RectTransform _rewardTextParent;
 
         private SlotLever _lever;
-        [SerializeField] private GameObject _coinPrefab;
         [SerializeField] private OwnedUpgradeView _ownedUpgradePrefab;
         private int _currentBatchFactor = 1;
-        private readonly Color _buttonSelectedColor = new Color(0.2f, 0.62f, 0.3f, 1f); // Green
-        private readonly Color _buttonNormalColor = new Color(0.2f, 0.38f, 0.62f, 1f); // Blue
+        private readonly Color _buttonSelectedColor = new Color(1f, 0.29f, 0.26f, 1f); // Tomato red
+        private readonly Color _buttonNormalColor = new Color(0.70f, 0.24f, 0.51f, 1f); // Magenta
 
         private void Start()
         {
@@ -93,9 +101,16 @@ namespace SerenaysGambit
             _symbolDefinitions = Resources.LoadAll<SymbolDefinition>("SerenaysGambit/Data/Symbols");
             _reelDefinitions = Resources.LoadAll<ReelDefinition>("SerenaysGambit/Data/Reels");
             _shopItemDefinitions = Resources.LoadAll<ShopItemDefinition>("SerenaysGambit/Data/ShopItems");
+            _gambitItemDefinitions = Resources.LoadAll<GambitItemDefinition>("SerenaysGambit/Data/Gambits");
             _balanceDefinition = Resources.Load<BalanceDefinition>("SerenaysGambit/Data/Balance/DefaultBalance");
             IndexShopItemDefinitions();
-            _rulesConfig = RuntimeGameConfigFactory.Create(_symbolDefinitions, _reelDefinitions, _shopItemDefinitions, _balanceDefinition);
+            IndexGambitItemDefinitions();
+            _rulesConfig = RuntimeGameConfigFactory.Create(
+                _symbolDefinitions,
+                _reelDefinitions,
+                _shopItemDefinitions,
+                _balanceDefinition,
+                _gambitItemDefinitions);
             PrepareDefaultFonts();
             if (!BindView())
             {
@@ -103,20 +118,16 @@ namespace SerenaysGambit
                 return;
             }
 
-            if (_targetText != null)
-            {
-                _targetText.gameObject.SetActive(false);
-            }
-
             var canvas = GameObject.Find("GameCanvas");
             if (canvas != null)
             {
                 var mainCamera = Camera.main;
-                var canvasComp = canvas.GetComponent<Canvas>();
-                if (canvasComp != null)
+                _gameCanvas = canvas.GetComponent<Canvas>();
+                _rewardTextParent = canvas.GetComponent<RectTransform>();
+                if (_gameCanvas != null)
                 {
-                    canvasComp.renderMode = RenderMode.ScreenSpaceCamera;
-                    canvasComp.worldCamera = mainCamera;
+                    _gameCanvas.renderMode = RenderMode.ScreenSpaceCamera;
+                    _gameCanvas.worldCamera = mainCamera;
                 }
 
                 var mainContentTrans = canvas.transform.Find("MainContent");
@@ -241,18 +252,47 @@ namespace SerenaysGambit
                 }
             }
 
-            foreach (var coin in _coinPool)
-            {
-                if (coin != null)
-                {
-                    Destroy(coin);
-                }
-            }
-            _coinPool.Clear();
+            ClearRewardTextPool(true);
+        }
+
+        private static string FormatSidebarGoal(string amount)
+        {
+            return "<b>THE GOAL</b>\n<size=14>SCORE AT LEAST</size>\n<size=30><color=#FF534A>" + amount + "</color></size>";
+        }
+
+        private static string FormatSidebarGoalCleared(string amount)
+        {
+            return "<b>THE GOAL</b>\n<size=14>SCORE AT LEAST</size>\n<size=30><color=#55FF55><s>" + amount + "</s></color></size>";
+        }
+
+        private static string FormatSidebarPayout(string amount, int combo, int batch)
+        {
+            return FormatSidebarPayout(amount, combo, batch, "<color=#FFA001>COMBO x" + combo + "  |  BATCH x" + batch + "</color>");
+        }
+
+        private static string FormatSidebarPayout(string amount, int combo, int batch, string detail)
+        {
+            return "<b>ROUND SCORE</b>\n<size=25><color=#FFF5E8>" + amount + "</color></size>\n<size=13>" + detail + "</size>";
+        }
+
+        private static string FormatSidebarBank(string amount)
+        {
+            return "<b>BANK</b>\n<size=29><color=#FFA001>" + amount + "</color></size>";
+        }
+
+        private static string FormatSidebarRound(int level, int total)
+        {
+            return "<b>ANTE</b>\n<size=23><color=#FFA001>" + level + "</color><size=16> / " + total + "</size></size>";
+        }
+
+        private static string FormatSidebarRolls(int rollsRemaining)
+        {
+            return "<b>ROLLS LEFT</b>\n<size=29><color=#1599ED>" + rollsRemaining + "</color></size>";
         }
 
         private void StartNewRun()
         {
+            ClearRewardTextPool(false);
             ClearOwnedUpgradeViews();
             ClearOrganViews();
             _isFirstRefresh = true;
@@ -263,7 +303,7 @@ namespace SerenaysGambit
             InitializeOrganViews();
             ClearGrid();
             _resultText.text = "Choose a batch to spin. Space = 1x, 5 = 5x, 0 = 10x.";
-            _payoutText.text = "Last payout: TL 0.00";
+            _payoutText.text = FormatSidebarPayout(MoneyFormatter.FormatTL(BigInteger.Zero), 1, 1);
             _gameOverOverlay.SetActive(false);
             _victoryOverlay.SetActive(false);
             RefreshEndScreenStats();
@@ -360,7 +400,10 @@ namespace SerenaysGambit
             }
             else
             {
-                _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+                _payoutText.text = FormatSidebarPayout(
+                    MoneyFormatter.FormatTL(result.Score.PayoutKurus),
+                    result.Score.ComboMultiplier,
+                    result.Score.BatchFactor);
                 _resultText.text = BuildResultSummary(result);
             }
 
@@ -444,6 +487,7 @@ namespace SerenaysGambit
 
                 _ticketsText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/TicketsText");
                 _payoutText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/PayoutText");
+                _payoutText.richText = true;
                 _resultText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ResultText");
                 _shopWalletText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/ShopWalletText");
                 _ownedUpgradesLayout = Require<RectTransform>(root, "MainContent/VerticalShelfPanel/OwnedUpgradesLayout");
@@ -550,12 +594,15 @@ namespace SerenaysGambit
         {
             if (_roundText != null)
             {
-                _roundText.text = "Round Number: Round " + _state.ThresholdLevel;
+                _roundText.text = FormatSidebarRound(_state.ThresholdLevel, _state.Config.ThresholdCount);
             }
-            _cashText.text = "Current Total: " + MoneyFormatter.FormatTL(_state.CashKurus);
-            _targetText.text = "Threshold Money: " + MoneyFormatter.FormatTL(_state.CurrentTargetKurus);
+            _cashText.text = FormatSidebarBank(MoneyFormatter.FormatTL(_state.CashKurus));
+            bool goalMet = _state.CashKurus >= _state.CurrentTargetKurus;
+            _targetText.text = goalMet
+                ? FormatSidebarGoalCleared(MoneyFormatter.FormatTL(_state.CurrentTargetKurus))
+                : FormatSidebarGoal(MoneyFormatter.FormatTL(_state.CurrentTargetKurus));
             UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
-            _rollsText.text = "Rolls Left: " + _state.RollsRemaining;
+            _rollsText.text = FormatSidebarRolls(_state.RollsRemaining);
             RefreshOrganViews(!_isFirstRefresh);
             _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
@@ -613,6 +660,23 @@ namespace SerenaysGambit
                 if (definition != null)
                 {
                     _shopItemDefinitionsByKind[definition.Kind] = definition;
+                }
+            }
+        }
+
+        private void IndexGambitItemDefinitions()
+        {
+            _gambitItemDefinitionsByKind.Clear();
+            if (_gambitItemDefinitions == null)
+            {
+                return;
+            }
+
+            foreach (var definition in _gambitItemDefinitions)
+            {
+                if (definition != null && Enum.IsDefined(typeof(GambitKind), definition.Kind))
+                {
+                    _gambitItemDefinitionsByKind[definition.Kind] = definition;
                 }
             }
         }
@@ -681,26 +745,25 @@ namespace SerenaysGambit
                 }
             }
 
-            // Refresh Gambits in their layout
             if (_ownedGambitsLayout != null)
             {
-                RefreshGambitView("StrawberryGambit", _state.Modifiers.StrawberryGambitCount, "Strawberry Gambit", "Strawberry wins: x10 per Strawberry symbol.\nSacrifice: if no Strawberry wins, -25% output per Strawberry on grid.", "SG", new Color(0.85f, 0.2f, 0.3f, 1f));
-                RefreshGambitView("BatchTenGambit", _state.Modifiers.BatchTenGambitCount, "Tenfold Batch", "Forced to roll at 10x batch factor.\nBonus: gain 10x the roll amount.", "TB", new Color(0.2f, 0.6f, 0.8f, 1f));
-                RefreshGambitView("Joker1000xGambit", _state.Modifiers.Joker1000xGambitCount, "Joker 1000x", "Score win with Joker on left reel for 1000x roll output.\nRisk: 15% chance to lose left reel Joker.", "J1K", new Color(0.7f, 0.3f, 0.85f, 1f));
-                RefreshGambitView("AppleDecayGambit", _state.Modifiers.AppleDecayGambitCount, "Apple Decay", "Apple wins: pay 5x.\nSacrifice: every spin without an Apple reduces Apple value by 1.", "AD", new Color(0.95f, 0.65f, 0.1f, 1f));
+                foreach (GambitKind kind in Enum.GetValues(typeof(GambitKind)))
+                {
+                    RefreshGambitView(kind, _state.Modifiers.GambitCount(kind));
+                }
             }
         }
 
-        private void RefreshGambitView(string key, int count, string title, string description, string shortLabel, Color color)
+        private void RefreshGambitView(GambitKind kind, int count)
         {
             OwnedUpgradeView view;
-            _ownedGambitViews.TryGetValue(key, out view);
+            _ownedGambitViews.TryGetValue(kind, out view);
 
             if (count <= 0)
             {
                 if (view != null)
                 {
-                    _ownedGambitViews.Remove(key);
+                    _ownedGambitViews.Remove(kind);
                     Destroy(view.gameObject);
                 }
                 return;
@@ -709,11 +772,26 @@ namespace SerenaysGambit
             if (view == null)
             {
                 view = Instantiate(_ownedUpgradePrefab, _ownedGambitsLayout);
-                _ownedGambitViews[key] = view;
+                _ownedGambitViews[kind] = view;
             }
 
+            GambitItemDefinition definition;
+            _gambitItemDefinitionsByKind.TryGetValue(kind, out definition);
+            var title = definition != null && !string.IsNullOrEmpty(definition.DisplayName)
+                ? definition.DisplayName
+                : kind.ToString();
+            var description = definition != null && !string.IsNullOrEmpty(definition.Description)
+                ? definition.Description
+                : "Gambit details are unavailable.";
+            var shortLabel = definition != null && !string.IsNullOrEmpty(definition.ShortLabel)
+                ? definition.ShortLabel
+                : GambitFallbackLabel(kind);
+            var color = definition != null && definition.AccentColor != Color.clear
+                ? definition.AccentColor
+                : GambitFallbackColor(kind);
+
             view.Bind(
-                null,
+                definition == null ? null : definition.Icon,
                 shortLabel,
                 color,
                 count,
@@ -721,6 +799,30 @@ namespace SerenaysGambit
                 description,
                 "Active Stack: x" + count,
                 _upgradeTooltip);
+        }
+
+        private static string GambitFallbackLabel(GambitKind kind)
+        {
+            switch (kind)
+            {
+                case GambitKind.Strawberry: return "SG";
+                case GambitKind.BatchTen: return "TB";
+                case GambitKind.Joker1000x: return "J1K";
+                case GambitKind.AppleDecay: return "AD";
+                default: return "?";
+            }
+        }
+
+        private static Color GambitFallbackColor(GambitKind kind)
+        {
+            switch (kind)
+            {
+                case GambitKind.Strawberry: return new Color(0.85f, 0.2f, 0.3f, 1f);
+                case GambitKind.BatchTen: return new Color(0.2f, 0.6f, 0.8f, 1f);
+                case GambitKind.Joker1000x: return new Color(0.7f, 0.3f, 0.85f, 1f);
+                case GambitKind.AppleDecay: return new Color(0.95f, 0.65f, 0.1f, 1f);
+                default: return new Color(0.5f, 0.5f, 0.5f, 1f);
+            }
         }
 
         private void ClearOwnedUpgradeViews()
@@ -818,59 +920,62 @@ namespace SerenaysGambit
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = true;
 
-            // Pick 3 random gambits out of 4
-            var pool = new List<int> { 1, 2, 3, 4 };
-            // Simple Fisher-Yates shuffle
+            var pool = new List<GambitItemDefinition>();
+            var availableKinds = new HashSet<GambitKind>();
+            if (_gambitItemDefinitions != null)
+            {
+                foreach (var definition in _gambitItemDefinitions)
+                {
+                    if (definition != null
+                        && Enum.IsDefined(typeof(GambitKind), definition.Kind)
+                        && availableKinds.Add(definition.Kind))
+                    {
+                        pool.Add(definition);
+                    }
+                }
+            }
+
             for (int i = 0; i < pool.Count; i++)
             {
-                int temp = pool[i];
+                var temp = pool[i];
                 int rIdx = UnityEngine.Random.Range(i, pool.Count);
                 pool[i] = pool[rIdx];
                 pool[rIdx] = temp;
             }
 
-            for (int i = 0; i < 3; i++)
+            var cardsToShow = Mathf.Min(3, pool.Count);
+            if (cardsToShow == 0)
             {
-                int option = pool[i];
-                if (option == 1)
-                {
-                    CreateGambitCard(cardPanelObj.transform, 
-                        "Strawberry Gambit", 
-                        "Strawberry wins: x10 per Strawberry symbol.\n\n<color=#ff4444>Sacrifice:</color>\nIf no Strawberry wins, -25% total output per Strawberry symbol on the grid.",
-                        new Color(0.85f, 0.2f, 0.3f, 1f),
-                        delegate { SelectGambit(1); });
-                }
-                else if (option == 2)
-                {
-                    CreateGambitCard(cardPanelObj.transform, 
-                        "Tenfold Batch", 
-                        "Forced to roll at 10x batch factor.\n\n<color=#55ff55>Bonus:</color>\nImmediately receive 10 times the roll amount.",
-                        new Color(0.2f, 0.6f, 0.8f, 1f),
-                        delegate { SelectGambit(2); });
-                }
-                else if (option == 3)
-                {
-                    CreateGambitCard(cardPanelObj.transform, 
-                        "Joker's 1000x", 
-                        "Score win with Joker on left reel for a 1000x multiplier.\n\n<color=#ffaa00>Risk:</color>\n15% chance to lose the Joker on the left reel strip (replaced by random fruit).",
-                        new Color(0.7f, 0.3f, 0.85f, 1f),
-                        delegate { SelectGambit(3); });
-                }
-                else if (option == 4)
-                {
-                    CreateGambitCard(cardPanelObj.transform, 
-                        "Apple Decay", 
-                        "Apple wins pay 5x multiplier.\n\n<color=#ff6600>Sacrifice:</color>\nEvery spin that does not contain an Apple reduces value of Apples by 1.",
-                        new Color(0.95f, 0.65f, 0.1f, 1f),
-                        delegate { SelectGambit(4); });
-                }
+                Debug.LogError("No GambitItemDefinition assets were found under Resources/SerenaysGambit/Data/Gambits.");
+                Destroy(_gambitOverlay);
+                _gambitOverlay = null;
+                _isSpinAnimating = false;
+                return;
+            }
+
+            for (int i = 0; i < cardsToShow; i++)
+            {
+                var definition = pool[i];
+                CreateGambitCard(
+                    cardPanelObj.transform,
+                    definition,
+                    delegate { SelectGambit(definition); });
             }
 
             PrepareDefaultFonts();
         }
 
-        private void CreateGambitCard(Transform parent, string title, string description, Color cardColor, Action onClickAction)
+        private void CreateGambitCard(Transform parent, GambitItemDefinition definition, Action onClickAction)
         {
+            var title = definition != null && !string.IsNullOrEmpty(definition.DisplayName)
+                ? definition.DisplayName
+                : definition == null ? "Unknown Gambit" : definition.Kind.ToString();
+            var description = definition != null && !string.IsNullOrEmpty(definition.Description)
+                ? definition.Description
+                : "Gambit details are unavailable.";
+            var cardColor = definition != null && definition.AccentColor != Color.clear
+                ? definition.AccentColor
+                : definition == null ? Color.gray : GambitFallbackColor(definition.Kind);
             var cardObj = new GameObject(title + "_Card", typeof(RectTransform));
             cardObj.transform.SetParent(parent, false);
 
@@ -917,6 +1022,18 @@ namespace SerenaysGambit
             vLayout.childForceExpandWidth = true;
             vLayout.childForceExpandHeight = false;
 
+            if (definition != null && definition.Icon != null)
+            {
+                var iconObj = new GameObject("Icon", typeof(RectTransform));
+                iconObj.transform.SetParent(contentObj.transform, false);
+                var icon = iconObj.AddComponent<Image>();
+                icon.sprite = definition.Icon;
+                icon.preserveAspect = true;
+                var iconLayout = iconObj.AddComponent<LayoutElement>();
+                iconLayout.preferredHeight = 72f;
+                iconLayout.minHeight = 72f;
+            }
+
             var titleTextObj = new GameObject("Title", typeof(RectTransform));
             titleTextObj.transform.SetParent(contentObj.transform, false);
             var tText = titleTextObj.AddComponent<TextMeshProUGUI>();
@@ -935,31 +1052,25 @@ namespace SerenaysGambit
             dText.alignment = TextAlignmentOptions.Center;
         }
 
-        private void SelectGambit(int option)
+        private void SelectGambit(GambitItemDefinition definition)
         {
-            if (_state == null) return;
+            if (_state == null || definition == null)
+            {
+                return;
+            }
 
-            if (option == 1)
+            _state.Modifiers.AddGambit(definition.Kind);
+            if (definition.Kind == GambitKind.BatchTen)
             {
-                _state.Modifiers.StrawberryGambitCount++;
-                _resultText.text = "Accepted: Strawberry Gambit!";
+                var gambitConfig = _state.Modifiers.GambitConfig(definition.Kind);
+                var rollMultiplier = gambitConfig == null ? Math.Max(1, definition.RollMultiplier) : gambitConfig.RollMultiplier;
+                _state.MultiplyRolls(rollMultiplier);
             }
-            else if (option == 2)
-            {
-                _state.Modifiers.BatchTenGambitCount++;
-                _state.MultiplyRolls(10);
-                _resultText.text = "Accepted: Tenfold Batch!";
-            }
-            else if (option == 3)
-            {
-                _state.Modifiers.Joker1000xGambitCount++;
-                _resultText.text = "Accepted: Joker's 1000x!";
-            }
-            else if (option == 4)
-            {
-                _state.Modifiers.AppleDecayGambitCount++;
-                _resultText.text = "Accepted: Apple Decay!";
-            }
+
+            var displayName = string.IsNullOrEmpty(definition.DisplayName)
+                ? definition.Kind.ToString()
+                : definition.DisplayName;
+            _resultText.text = "Accepted: " + displayName + "!";
 
             if (_gambitOverlay != null)
             {
@@ -1305,6 +1416,7 @@ namespace SerenaysGambit
 
         private struct CellRef
         {
+            public GridPosition Position;
             public Image Image;
             public TextMeshProUGUI Text;
             public Vector3 OriginalScale;
@@ -1333,69 +1445,76 @@ namespace SerenaysGambit
 
         private IEnumerator AnimateWinHighlighting(SpinResult result)
         {
-            var wins = result.Score.Wins;
-            BigInteger accumulatedPayout = BigInteger.Zero;
-            var canvas = GameObject.Find("GameCanvas");
-            Transform spawnParent = canvas != null ? canvas.transform : transform;
+            var animationEvents = RewardAnimationQueueBuilder.Build(result.Score);
             BigInteger startCash = result.CashBeforeSpinKurus;
+            BigInteger displayedPayout = BigInteger.Zero;
+            BigInteger accumulatedFinalPayout = BigInteger.Zero;
+            var cachedCells = new Dictionary<PaylineWin, List<CellRef>>();
+            Transform canvasTransform = _rewardTextParent != null ? _rewardTextParent : transform;
+            var queueLength = animationEvents.Count;
+            var matchDuration = RewardAnimationQueueBuilder.DurationForQueue(
+                queueLength,
+                FirstWinPulseDuration,
+                MinimumWinPulseDuration,
+                QueueSpeedupPerEvent);
+            var multiplierDuration = RewardAnimationQueueBuilder.DurationForQueue(
+                queueLength,
+                MultiplierStepDuration,
+                MinimumWinPulseDuration,
+                QueueSpeedupPerEvent);
 
-            // Each logical hit gets a payout share. x2, x5, and x10 upgrades therefore play
-            // exactly that many fast reward pulses. The x100 tier is compacted into rapid
-            // bursts so a full-board win stays punchy instead of trapping the player in a long queue.
-
-            for (int winIndex = 0; winIndex < wins.Count; winIndex++)
+            for (var eventIndex = 0; eventIndex < animationEvents.Count; eventIndex++)
             {
-                var win = wins[winIndex];
-                var cells = CollectWinningCells(win);
-
-                BigInteger winStartPayout = accumulatedPayout;
-                BigInteger winPayout = win.FinalPayoutKurus;
-                int logicalRewardHits = result.Score.RewardAnimationCount(win);
-                int pulseWaves = Mathf.Min(logicalRewardHits, MaximumRewardPulseWaves);
-                int hitsPerPulse = Mathf.CeilToInt((float)logicalRewardHits / pulseWaves);
-
-                for (int pulseIndex = 0; pulseIndex < pulseWaves; pulseIndex++)
+                var animationEvent = animationEvents[eventIndex];
+                List<CellRef> cells;
+                if (!cachedCells.TryGetValue(animationEvent.Win, out cells))
                 {
-                    int completedHitsBeforePulse = pulseIndex * hitsPerPulse;
-                    int completedHitsAfterPulse = Mathf.Min(logicalRewardHits, completedHitsBeforePulse + hitsPerPulse);
-                    int hitsInPulse = completedHitsAfterPulse - completedHitsBeforePulse;
-                    BigInteger stepStartPayout = PayoutAtRewardHit(winStartPayout, winPayout, completedHitsBeforePulse, logicalRewardHits);
-                    BigInteger stepEndPayout = PayoutAtRewardHit(winStartPayout, winPayout, completedHitsAfterPulse, logicalRewardHits);
-                    float stepDuration = RewardPulseDuration(winIndex, pulseIndex, pulseWaves);
-                    var spawnedCoins = new List<GameObject>();
-                    var stepSequence = CreateRewardPulse(
-                        result,
-                        win,
-                        cells,
-                        spawnParent,
-                        startCash,
-                        completedHitsBeforePulse,
-                        completedHitsAfterPulse,
-                        logicalRewardHits,
-                        hitsInPulse,
-                        stepStartPayout,
-                        stepEndPayout,
-                        stepDuration,
-                        spawnedCoins);
-
-                    stepSequence.OnKill(delegate
-                    {
-                        RestorePaylineVisuals(cells);
-                        ReturnSpawnedCoins(spawnedCoins);
-                    });
-                    stepSequence.Play();
-                    yield return stepSequence.WaitForCompletion();
-
-                    // This also covers projects whose DOTween settings disable auto-kill.
-                    RestorePaylineVisuals(cells);
-                    ReturnSpawnedCoins(spawnedCoins);
+                    cells = CollectWinningCells(animationEvent.Win);
+                    cachedCells.Add(animationEvent.Win, cells);
                 }
 
-                accumulatedPayout += winPayout;
+                if (animationEvent.Kind == RewardAnimationEventKind.MatchAddition)
+                {
+                    var stepStartPayout = displayedPayout;
+                    var stepEndPayout = displayedPayout + animationEvent.BaseAmountKurus;
+                    var stepSequence = CreateMatchAdditionSequence(
+                        result,
+                        animationEvent,
+                        cells,
+                        canvasTransform,
+                        startCash,
+                        stepStartPayout,
+                        stepEndPayout,
+                        matchDuration);
+                    stepSequence.Play();
+                    yield return stepSequence.WaitForCompletion();
+                    RestorePaylineVisuals(cells);
+                    displayedPayout = stepEndPayout;
+                }
+                else
+                {
+                    var stepStartPayout = displayedPayout;
+                    var stepEndPayout = accumulatedFinalPayout + animationEvent.Win.FinalPayoutKurus;
+                    var stepSequence = CreateMultiplierSequence(
+                        result,
+                        animationEvent,
+                        cells,
+                        startCash,
+                        stepStartPayout,
+                        stepEndPayout,
+                        multiplierDuration);
+                    stepSequence.Play();
+                    yield return stepSequence.WaitForCompletion();
+                    RestorePaylineVisuals(cells);
+                    displayedPayout = stepEndPayout;
+                    accumulatedFinalPayout = stepEndPayout;
+                }
             }
 
-            // Finally, snap payout text and show final results summary
-            _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(result.Score.PayoutKurus) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+            _payoutText.text = FormatSidebarPayout(
+                MoneyFormatter.FormatTL(result.Score.PayoutKurus),
+                result.Score.ComboMultiplier,
+                result.Score.BatchFactor);
             _resultText.text = BuildResultSummary(result);
             UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
         }
@@ -1416,6 +1535,7 @@ namespace SerenaysGambit
 
                 cells.Add(new CellRef
                 {
+                    Position = position,
                     Image = image,
                     Text = text,
                     OriginalScale = image.rectTransform.localScale,
@@ -1428,124 +1548,227 @@ namespace SerenaysGambit
             return cells;
         }
 
-        private Sequence CreateRewardPulse(
+        private Sequence CreateMatchAdditionSequence(
             SpinResult result,
-            PaylineWin win,
+            RewardAnimationEvent animationEvent,
             List<CellRef> cells,
             Transform spawnParent,
             BigInteger startCash,
-            int completedHitsBeforePulse,
-            int completedHitsAfterPulse,
-            int logicalRewardHits,
-            int hitsInPulse,
             BigInteger stepStartPayout,
             BigInteger stepEndPayout,
-            float duration,
-            List<GameObject> spawnedCoins)
+            float duration)
         {
             var step = DOTween.Sequence();
-            Color highlightColor = new Color(1f, 0.9f, 0.2f, 1f);
+            var highlightColor = new Color(1f, 0.9f, 0.2f, 1f);
+            var matchDetail = FormatMatchStepDetail(animationEvent);
 
             step.AppendCallback(delegate
             {
                 BeginPaylineHighlight(cells);
-                var hitLabel = logicalRewardHits > 1
-                    ? " — hit " + (completedHitsBeforePulse + 1) + (hitsInPulse > 1 ? "-" + completedHitsAfterPulse : string.Empty) + "/" + logicalRewardHits
-                    : string.Empty;
-                var matchEchoLabel = win.MatchCountMultiplier > 1
-                    ? " — " + PaylineGroupDisplayName(win.Payline.Group) + " Echo x" + win.MatchCountMultiplier
-                    : string.Empty;
-                _resultText.text = "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")"
-                    + matchEchoLabel + hitLabel;
-                UpdateBatchPayout(result, startCash, stepStartPayout, stepEndPayout, 0f);
+                for (var rewardIndex = 0; rewardIndex < animationEvent.CellRewards.Count; rewardIndex++)
+                {
+                    var reward = animationEvent.CellRewards[rewardIndex];
+                    var cell = FindCell(cells, reward.Position);
+                    if (cell.Image != null)
+                    {
+                        SpawnRewardText(cell.Image.transform.position, FormatFloatingReward(reward.AmountKurus), spawnParent, duration);
+                    }
+                }
+
+                _resultText.text = BuildMatchResultText(animationEvent);
+                UpdateQueuedPayout(result, startCash, stepStartPayout, matchDetail, 0f);
             });
 
             step.Append(DOTween.To(
                 () => 0f,
-                progress => ApplyPaylinePulse(cells, progress, highlightColor),
+                progress =>
+                {
+                    ApplyPaylinePulse(cells, progress, highlightColor);
+                    UpdateQueuedPayout(result, startCash, stepStartPayout, matchDetail, progress, stepEndPayout);
+                },
                 1f,
                 duration).SetEase(Ease.Linear));
 
-            step.Join(DOTween.To(
-                () => 0f,
-                progress => UpdateBatchPayout(result, startCash, stepStartPayout, stepEndPayout, progress),
-                1f,
-                duration).SetEase(Ease.Linear).OnComplete(delegate
-                {
-                    UpdateBatchPayout(result, startCash, stepStartPayout, stepEndPayout, 1f);
-                }));
-
-            for (int cellIndex = 0; cellIndex < cells.Count; cellIndex++)
+            step.AppendCallback(delegate
             {
-                int coinFlights = Mathf.Min(hitsInPulse, MaximumCoinFlightsPerCellPerPulse);
-                for (int coinIndex = 0; coinIndex < coinFlights; coinIndex++)
-                {
-                    var coinFlight = CreateCoinFlight(cells[cellIndex], spawnParent, duration, spawnedCoins);
-                    if (coinFlight != null)
-                    {
-                        step.Join(coinFlight);
-                    }
-                }
-            }
-
-            step.AppendCallback(delegate { RestorePaylineVisuals(cells); });
+                UpdateQueuedPayout(result, startCash, stepStartPayout, matchDetail, 1f, stepEndPayout);
+                RestorePaylineVisuals(cells);
+            });
+            step.OnKill(delegate { RestorePaylineVisuals(cells); });
             return step;
         }
 
-        private Sequence CreateCoinFlight(CellRef cell, Transform spawnParent, float duration, List<GameObject> spawnedCoins)
+        private Sequence CreateMultiplierSequence(
+            SpinResult result,
+            RewardAnimationEvent animationEvent,
+            List<CellRef> cells,
+            BigInteger startCash,
+            BigInteger stepStartPayout,
+            BigInteger stepEndPayout,
+            float duration)
         {
-            var coin = SpawnCoin(cell.Image.transform.position, spawnParent);
-            if (coin == null)
+            var step = DOTween.Sequence();
+            var multiplierDetail = BuildMultiplierDetail(result, animationEvent.Win);
+
+            step.AppendCallback(delegate
             {
-                return null;
+                _resultText.text = "Applying multipliers to " + animationEvent.Win.Payline.Name + ".";
+                UpdateQueuedPayout(result, startCash, stepStartPayout, multiplierDetail, 0f);
+                PunchPayoutText();
+            });
+
+            step.Append(DOTween.To(
+                () => 0f,
+                progress => UpdateQueuedPayout(result, startCash, stepStartPayout, multiplierDetail, progress, stepEndPayout),
+                1f,
+                duration).SetEase(Ease.OutCubic));
+
+            step.AppendCallback(delegate
+            {
+                UpdateQueuedPayout(result, startCash, stepEndPayout, multiplierDetail, 1f);
+                PunchPayoutText();
+            });
+            step.OnKill(delegate { RestorePaylineVisuals(cells); });
+            return step;
+        }
+
+        private static CellRef FindCell(List<CellRef> cells, GridPosition position)
+        {
+            for (var index = 0; index < cells.Count; index++)
+            {
+                if (cells[index].Position.Row == position.Row && cells[index].Position.Column == position.Column)
+                {
+                    return cells[index];
+                }
             }
 
-            spawnedCoins.Add(coin);
-            Vector3 startPosition = coin.transform.position;
-            Vector3 startScale = coin.transform.localScale;
-            Vector3 burstOffset = new Vector3(UnityEngine.Random.Range(-40f, 40f), UnityEngine.Random.Range(-40f, 40f), 0f);
-            Vector3 burstPosition = startPosition + burstOffset;
-            Vector3 targetPosition = _cashText != null ? _cashText.transform.position : (_thresholdBarRect != null ? _thresholdBarRect.position : _payoutText.transform.position);
-            float burstDuration = Mathf.Max(0.005f, duration * 0.35f);
-            float flightDuration = Mathf.Max(0.005f, duration - burstDuration);
-
-            coin.SetActive(false);
-            var flight = DOTween.Sequence();
-            flight.AppendCallback(delegate
-            {
-                if (coin == null)
-                {
-                    return;
-                }
-
-                coin.transform.position = startPosition;
-                coin.transform.localScale = startScale;
-                coin.SetActive(true);
-            });
-            flight.Append(coin.transform.DOMove(burstPosition, burstDuration).SetEase(Ease.OutQuad));
-            flight.Join(coin.transform.DOPunchScale(Vector3.one * 0.2f, burstDuration));
-            flight.Append(coin.transform.DOMove(targetPosition, flightDuration).SetEase(Ease.InQuad));
-            flight.Join(coin.transform.DOScale(Vector3.zero, flightDuration).SetEase(Ease.InQuad));
-            flight.OnComplete(delegate
-            {
-                if (coin != null)
-                {
-                    ReturnCoin(coin);
-                }
-            });
-            return flight;
+            return new CellRef();
         }
 
-        private float RewardPulseDuration(int winIndex, int pulseIndex, int pulseWaves)
+        private static BigInteger PayoutAtProgress(BigInteger stepStartPayout, BigInteger stepEndPayout, float progress)
         {
-            float winDuration = FirstWinPulseDuration / (1f + winIndex * 0.4f);
-            float initialPulseDuration = pulseWaves > 1 ? winDuration / pulseWaves : winDuration;
-            return Mathf.Max(MinimumWinPulseDuration, initialPulseDuration / (1f + pulseIndex * RewardPulseSpeedIncrease));
+            var clampedProgress = Mathf.Clamp01(progress);
+            return stepStartPayout + (BigInteger)((double)(stepEndPayout - stepStartPayout) * clampedProgress);
         }
 
-        private static BigInteger PayoutAtRewardHit(BigInteger winStartPayout, BigInteger winPayout, int completedRewardHits, int totalRewardHits)
+        private static string BuildMatchResultText(RewardAnimationEvent animationEvent)
         {
-            return winStartPayout + winPayout * completedRewardHits / totalRewardHits;
+            var win = animationEvent.Win;
+            return "Scored: " + win.Payline.Name + " (" + (win.IsTripleJoker ? "Triple Joker" : win.ResolvedSymbol.ToString()) + ")"
+                + " — hit " + (animationEvent.HitIndex + 1) + "/" + animationEvent.TotalHits;
+        }
+
+        private string FormatMatchStepDetail(RewardAnimationEvent animationEvent)
+        {
+            var detail = "<b><color=#FFA001>" + FormatRewardAmount(animationEvent.BaseAmountKurus) + "</color></b>";
+            if (animationEvent.TotalHits > 1)
+            {
+                detail += " <color=#74D7FF>REPEAT " + (animationEvent.HitIndex + 1) + "/" + animationEvent.TotalHits + "</color>";
+            }
+
+            return detail;
+        }
+
+        private string BuildMultiplierDetail(SpinResult result, PaylineWin win)
+        {
+            var parts = new List<string>();
+            parts.Add("<color=#FFA001>×" + result.Score.ComboMultiplier + " COMBO</color>");
+
+            if (_state != null && _state.Modifiers.MoneyMultiplier != BigInteger.One)
+            {
+                parts.Add("<color=#7EE7A8>×" + _state.Modifiers.MoneyMultiplier + " MONEY</color>");
+            }
+
+            if (_state != null && _state.Modifiers.BaseOutputMultiplier != BigInteger.One)
+            {
+                parts.Add("<color=#D89BFF>×" + _state.Modifiers.BaseOutputMultiplier + " OUTPUT</color>");
+            }
+
+            if (win.MatchCountMultiplier > 1)
+            {
+                parts.Add("<color=#74D7FF>REPEAT ×" + win.MatchCountMultiplier + "</color>");
+            }
+
+            if (result.Score.BatchFactor > 1)
+            {
+                parts.Add("<color=#5FA8FF>BATCH ×" + result.Score.BatchFactor + "</color>");
+            }
+
+            var gambitDetail = BuildGambitMultiplierDetail(result, win);
+            if (!string.IsNullOrEmpty(gambitDetail))
+            {
+                parts.Add(gambitDetail);
+            }
+
+            var detail = new StringBuilder();
+            for (var index = 0; index < parts.Count; index++)
+            {
+                if (index > 0)
+                {
+                    detail.Append("  ");
+                }
+                detail.Append(parts[index]);
+            }
+            return detail.ToString();
+        }
+
+        private string BuildGambitMultiplierDetail(SpinResult result, PaylineWin win)
+        {
+            var parts = new List<string>();
+            if (win.IsTripleJoker)
+            {
+                parts.Add("<color=#FFDD70>TRIPLE JOKER</color>");
+            }
+
+            if (_state != null && _state.Modifiers.AppleDecayGambitCount > 0 && win.ResolvedSymbol == SymbolKind.Apple)
+            {
+                var appleConfig = _state.Modifiers.GambitConfig(GambitKind.AppleDecay);
+                var applePayoutMultiplier = appleConfig == null ? 5 : appleConfig.PayoutMultiplier;
+                var appleMultiplier = BigInteger.Pow(new BigInteger(applePayoutMultiplier), _state.Modifiers.AppleDecayGambitCount);
+                parts.Add("<color=#FF8C69>APPLE ×" + appleMultiplier + "</color>");
+            }
+
+            if (_state != null && _state.Modifiers.Joker1000xGambitCount > 0 && WinUsesLeftReelJoker(result, win))
+            {
+                var jokerConfig = _state.Modifiers.GambitConfig(GambitKind.Joker1000x);
+                var jokerPayoutMultiplier = jokerConfig == null ? 1000 : jokerConfig.PayoutMultiplier;
+                var jokerMultiplier = BigInteger.Pow(new BigInteger(jokerPayoutMultiplier), _state.Modifiers.Joker1000xGambitCount);
+                parts.Add("<color=#D9A0FF>JOKER ×" + jokerMultiplier + "</color>");
+            }
+
+            if (_state != null && _state.Modifiers.StrawberryGambitCount > 0)
+            {
+                parts.Add("<color=#FF8FBA>STRAWBERRY GAMBIT</color>");
+            }
+
+            var detail = new StringBuilder();
+            for (var index = 0; index < parts.Count; index++)
+            {
+                if (index > 0)
+                {
+                    detail.Append("  ");
+                }
+                detail.Append(parts[index]);
+            }
+            return detail.ToString();
+        }
+
+        private static bool WinUsesLeftReelJoker(SpinResult result, PaylineWin win)
+        {
+            if (result == null || result.Grid == null)
+            {
+                return false;
+            }
+
+            foreach (var position in win.Payline.Positions)
+            {
+                if (position.Column == 0 && result.Grid[position.Row, position.Column] == SymbolKind.Joker)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static string PaylineGroupDisplayName(PaylineGroup group)
@@ -1629,84 +1852,226 @@ namespace SerenaysGambit
             }
         }
 
-        private void ReturnSpawnedCoins(List<GameObject> spawnedCoins)
-        {
-            for (int index = 0; index < spawnedCoins.Count; index++)
-            {
-                if (spawnedCoins[index] != null)
-                {
-                    ReturnCoin(spawnedCoins[index]);
-                }
-            }
-        }
-
-        private void UpdateBatchPayout(
+        private void UpdateQueuedPayout(
             SpinResult result,
             BigInteger startCash,
             BigInteger stepStartPayout,
-            BigInteger stepEndPayout,
+            string detail,
             float progress)
         {
-            float clampedProgress = Mathf.Clamp01(progress);
-            BigInteger currentDisplay = stepStartPayout + (BigInteger)((double)(stepEndPayout - stepStartPayout) * clampedProgress);
-            _payoutText.text = "Last payout: " + MoneyFormatter.FormatTL(currentDisplay) + " | combo x" + result.Score.ComboMultiplier + " | batch x" + result.Score.BatchFactor;
+            UpdateQueuedPayout(result, startCash, stepStartPayout, detail, progress, stepStartPayout);
+        }
+
+        private void UpdateQueuedPayout(
+            SpinResult result,
+            BigInteger startCash,
+            BigInteger stepStartPayout,
+            string detail,
+            float progress,
+            BigInteger stepEndPayout)
+        {
+            var currentDisplay = PayoutAtProgress(stepStartPayout, stepEndPayout, progress);
+            if (_payoutText != null)
+            {
+                _payoutText.text = FormatSidebarPayout(
+                    MoneyFormatter.FormatTL(currentDisplay),
+                    result.Score.ComboMultiplier,
+                    result.Score.BatchFactor,
+                    detail);
+            }
+
             UpdateThresholdBar(
                 startCash + currentDisplay,
                 result.TargetBeforeSpinKurus,
                 result.ThresholdLevelBeforeSpin);
         }
 
-        private GameObject SpawnCoin(Vector3 spawnPosition, Transform parent)
+        private string FormatFloatingReward(BigInteger amountKurus)
         {
-            GameObject coin = null;
-            for (int i = _coinPool.Count - 1; i >= 0; i--)
+            return "<b><size=22><color=#FFA001>" + FormatRewardAmount(amountKurus) + "</color></size></b>";
+        }
+
+        private static string FormatRewardAmount(BigInteger amountKurus)
+        {
+            var absolute = MoneyFormatter.FormatTL(BigInteger.Abs(amountKurus));
+            return (amountKurus.Sign < 0 ? "- " : "+ ") + absolute.Substring(3) + " TL";
+        }
+
+        private void SpawnRewardText(Vector3 worldPosition, string richText, Transform parent, float stepDuration)
+        {
+            if (parent == null)
             {
-                if (_coinPool[i] == null)
+                parent = transform;
+            }
+
+            var rewardObject = GetRewardTextObject(parent);
+            var rect = rewardObject.GetComponent<RectTransform>();
+            var canvasGroup = rewardObject.GetComponent<CanvasGroup>();
+            var text = rewardObject.GetComponent<TextMeshProUGUI>();
+            var startPosition = WorldToCanvasPosition(worldPosition);
+            var endPosition = startPosition + new Vector2(
+                UnityEngine.Random.Range(-RewardTextHorizontalSpread, RewardTextHorizontalSpread),
+                RewardTextRiseDistance);
+            var moveDuration = Mathf.Max(0.08f, stepDuration * 1.25f);
+            var fadeDuration = Mathf.Max(0.08f, Mathf.Min(RewardTextFadeDuration, moveDuration));
+
+            rect.anchoredPosition = startPosition;
+            rect.localScale = Vector3.one * RewardTextStartScale;
+            canvasGroup.alpha = 1f;
+            text.text = richText;
+            rewardObject.SetActive(true);
+
+            var sequence = DOTween.Sequence(rewardObject);
+            sequence.Append(rect.DOScale(Vector3.one * RewardTextPeakScale, Mathf.Max(0.06f, moveDuration * 0.24f)).SetEase(Ease.OutBack));
+            sequence.Join(rect.DOAnchorPos(endPosition, moveDuration).SetEase(Ease.OutCubic));
+            sequence.Join(canvasGroup.DOFade(0f, fadeDuration).SetDelay(moveDuration * 0.35f).SetEase(Ease.InQuad));
+            sequence.OnComplete(delegate { ReturnRewardText(rewardObject); });
+        }
+
+        private GameObject GetRewardTextObject(Transform parent)
+        {
+            GameObject rewardObject = null;
+            for (var index = _rewardTextPool.Count - 1; index >= 0; index--)
+            {
+                if (_rewardTextPool[index] == null)
                 {
-                    _coinPool.RemoveAt(i);
+                    _rewardTextPool.RemoveAt(index);
                     continue;
                 }
-                if (!_coinPool[i].activeSelf)
+
+                if (!_rewardTextPool[index].activeSelf)
                 {
-                    coin = _coinPool[i];
-                    _coinPool.RemoveAt(i);
+                    rewardObject = _rewardTextPool[index];
+                    _rewardTextPool.RemoveAt(index);
                     break;
                 }
             }
 
-            if (coin == null)
+            if (rewardObject == null)
             {
-                if (_coinPrefab != null)
+                rewardObject = new GameObject("FloatingRewardText", typeof(RectTransform), typeof(CanvasGroup), typeof(TextMeshProUGUI));
+                _allRewardTextObjects.Add(rewardObject);
+                var text = rewardObject.GetComponent<TextMeshProUGUI>();
+                text.alignment = TextAlignmentOptions.Center;
+                text.fontStyle = FontStyles.Bold;
+                text.enableWordWrapping = false;
+                text.overflowMode = TextOverflowModes.Overflow;
+                text.raycastTarget = false;
+                text.richText = true;
+
+                var outline = rewardObject.AddComponent<Outline>();
+                outline.effectColor = new Color(0.04f, 0.02f, 0.01f, 0.9f);
+                outline.effectDistance = new Vector2(2f, -2f);
+            }
+
+            rewardObject.transform.SetParent(parent, false);
+            var rect = rewardObject.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(220f, 60f);
+
+            var rewardText = rewardObject.GetComponent<TextMeshProUGUI>();
+            if (_payoutText != null)
+            {
+                rewardText.font = _payoutText.font;
+                rewardText.fontSharedMaterial = _payoutText.fontSharedMaterial;
+                rewardText.fontSize = Mathf.Max(18f, _payoutText.fontSize * 0.9f);
+            }
+
+            return rewardObject;
+        }
+
+        private Vector2 WorldToCanvasPosition(Vector3 worldPosition)
+        {
+            if (_rewardTextParent == null)
+            {
+                return new Vector2(worldPosition.x, worldPosition.y);
+            }
+
+            var eventCamera = _gameCanvas != null && _gameCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _gameCanvas.worldCamera
+                : null;
+            var screenPoint = RectTransformUtility.WorldToScreenPoint(eventCamera, worldPosition);
+            Vector2 localPoint;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_rewardTextParent, screenPoint, eventCamera, out localPoint))
+            {
+                return localPoint;
+            }
+
+            return new Vector2(worldPosition.x, worldPosition.y);
+        }
+
+        private void PunchPayoutText()
+        {
+            if (_payoutText == null)
+            {
+                return;
+            }
+
+            _payoutText.transform.DOKill();
+            _payoutText.transform.DOPunchScale(Vector3.one * 0.12f, Mathf.Max(0.08f, MultiplierStepDuration), 1, 0.5f);
+        }
+
+        private void ReturnRewardText(GameObject rewardObject)
+        {
+            if (rewardObject == null)
+            {
+                return;
+            }
+
+            DOTween.Kill(rewardObject);
+            rewardObject.transform.DOKill();
+            var canvasGroup = rewardObject.GetComponent<CanvasGroup>();
+            if (canvasGroup != null)
+            {
+                canvasGroup.DOKill();
+                canvasGroup.alpha = 0f;
+            }
+            rewardObject.SetActive(false);
+            if (!_rewardTextPool.Contains(rewardObject))
+            {
+                _rewardTextPool.Add(rewardObject);
+            }
+        }
+
+        private void ClearRewardTextPool(bool destroyObjects)
+        {
+            for (var index = _allRewardTextObjects.Count - 1; index >= 0; index--)
+            {
+                var rewardObject = _allRewardTextObjects[index];
+                if (rewardObject == null)
                 {
-                    coin = Instantiate(_coinPrefab, parent);
+                    _allRewardTextObjects.RemoveAt(index);
+                    continue;
+                }
+
+                DOTween.Kill(rewardObject);
+                rewardObject.transform.DOKill();
+                var canvasGroup = rewardObject.GetComponent<CanvasGroup>();
+                if (canvasGroup != null)
+                {
+                    canvasGroup.DOKill();
+                }
+
+                if (destroyObjects)
+                {
+                    Destroy(rewardObject);
                 }
                 else
                 {
-                    // Dynamic fallback UI image
-                    coin = new GameObject("Coin", typeof(RectTransform), typeof(Image));
-                    var rect = coin.GetComponent<RectTransform>();
-                    rect.sizeDelta = new Vector2(30f, 30f);
-                    var image = coin.GetComponent<Image>();
-                    image.color = new Color(1f, 0.85f, 0.2f, 1f); // Gold
-                    
-                    var outline = coin.AddComponent<Outline>();
-                    outline.effectColor = Color.black;
-                    outline.effectDistance = new Vector2(1.5f, 1.5f);
+                    rewardObject.SetActive(false);
+                    if (!_rewardTextPool.Contains(rewardObject))
+                    {
+                        _rewardTextPool.Add(rewardObject);
+                    }
                 }
             }
 
-            coin.transform.SetParent(parent, false);
-            coin.transform.position = spawnPosition;
-            coin.SetActive(true);
-            return coin;
-        }
-
-        private void ReturnCoin(GameObject coin)
-        {
-            if (coin != null && coin.activeSelf)
+            if (destroyObjects)
             {
-                coin.SetActive(false);
-                _coinPool.Add(coin);
+                _rewardTextPool.Clear();
+                _allRewardTextObjects.Clear();
             }
         }
 

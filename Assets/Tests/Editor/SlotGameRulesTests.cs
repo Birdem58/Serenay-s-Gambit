@@ -160,6 +160,135 @@ namespace SerenaysGambit.Tests
         }
 
         [Test]
+        public void RewardAnimationQueueSplitsLinePayoutAcrossThreeCellsWithRemainderOnLastCell()
+        {
+            var payline = new Payline(
+                "Test line",
+                0,
+                PaylineGroup.Horizontal,
+                new GridPosition(0, 0),
+                new GridPosition(0, 1),
+                new GridPosition(0, 2));
+            var win = new PaylineWin(payline, SymbolKind.Banana, new BigInteger(1001), false);
+            var score = new ScoredSpin(
+                new List<PaylineWin> { win },
+                new BigInteger(1001),
+                1,
+                1);
+
+            var events = RewardAnimationQueueBuilder.Build(score);
+            Assert.That(events.Count, Is.EqualTo(2));
+            Assert.That(events[0].Kind, Is.EqualTo(RewardAnimationEventKind.MatchAddition));
+            Assert.That(events[0].CellRewards.Count, Is.EqualTo(3));
+            Assert.That(events[0].CellRewards[0].AmountKurus, Is.EqualTo(new BigInteger(333)));
+            Assert.That(events[0].CellRewards[1].AmountKurus, Is.EqualTo(new BigInteger(333)));
+            Assert.That(events[0].CellRewards[2].AmountKurus, Is.EqualTo(new BigInteger(335)));
+
+            var sum = BigInteger.Zero;
+            foreach (var reward in events[0].CellRewards)
+            {
+                sum += reward.AmountKurus;
+            }
+            Assert.That(sum, Is.EqualTo(win.LinePayoutKurus));
+        }
+
+        [Test]
+        public void RewardAnimationQueueRepeatsMatchEventsForBatchAndMatchMultiplier()
+        {
+            var payline = new Payline(
+                "Test line",
+                0,
+                PaylineGroup.Horizontal,
+                new GridPosition(0, 0),
+                new GridPosition(0, 1),
+                new GridPosition(0, 2));
+            var batchWin = new PaylineWin(payline, SymbolKind.Orange, new BigInteger(1500), false);
+            var batchScore = new ScoredSpin(
+                new List<PaylineWin> { batchWin },
+                new BigInteger(1500) * 5,
+                1,
+                5);
+            var batchEvents = RewardAnimationQueueBuilder.Build(batchScore);
+            var batchMatchEventCount = 0;
+            foreach (var animationEvent in batchEvents)
+            {
+                if (animationEvent.Kind == RewardAnimationEventKind.MatchAddition)
+                {
+                    batchMatchEventCount++;
+                }
+            }
+            Assert.That(batchMatchEventCount, Is.EqualTo(5));
+
+            var win = new PaylineWin(payline, SymbolKind.Orange, new BigInteger(1500), false, 2);
+            var score = new ScoredSpin(
+                new List<PaylineWin> { win },
+                new BigInteger(1500) * 10,
+                1,
+                5);
+
+            var events = RewardAnimationQueueBuilder.Build(score);
+            var matchEventCount = 0;
+            var cellRewardCount = 0;
+            foreach (var animationEvent in events)
+            {
+                if (animationEvent.Kind == RewardAnimationEventKind.MatchAddition)
+                {
+                    matchEventCount++;
+                    cellRewardCount += animationEvent.CellRewards.Count;
+                }
+            }
+
+            Assert.That(matchEventCount, Is.EqualTo(10));
+            Assert.That(cellRewardCount, Is.EqualTo(30));
+            Assert.That(events[events.Count - 1].Kind, Is.EqualTo(RewardAnimationEventKind.Multiplier));
+        }
+
+        [Test]
+        public void RewardAnimationQueueDurationCompressesAndHonorsMinimum()
+        {
+            var singleEventDuration = RewardAnimationQueueBuilder.DurationForQueue(1, 0.6f, 0.025f, 0.08f);
+            var longQueueDuration = RewardAnimationQueueBuilder.DurationForQueue(20, 0.6f, 0.025f, 0.08f);
+            var cappedQueueDuration = RewardAnimationQueueBuilder.DurationForQueue(100000, 0.6f, 0.025f, 0.08f);
+
+            Assert.That(longQueueDuration, Is.LessThan(singleEventDuration));
+            Assert.That(longQueueDuration, Is.GreaterThanOrEqualTo(0.025f));
+            Assert.That(cappedQueueDuration, Is.EqualTo(0.025f).Within(0.0001f));
+        }
+
+        [Test]
+        public void RewardAnimationQueueCoversOverlappingWinningPaylinesAndKeepsFinalScoreAuthoritative()
+        {
+            var grid = new[,]
+            {
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry },
+                { SymbolKind.Strawberry, SymbolKind.Strawberry, SymbolKind.Strawberry }
+            };
+            var score = SlotScoring.Evaluate(grid, new RunModifiers(), 1);
+            var events = RewardAnimationQueueBuilder.Build(score);
+            var matchEventCount = 0;
+            var multiplierEventCount = 0;
+            var finalPayout = BigInteger.Zero;
+
+            foreach (var animationEvent in events)
+            {
+                if (animationEvent.Kind == RewardAnimationEventKind.MatchAddition)
+                {
+                    matchEventCount++;
+                }
+                else
+                {
+                    multiplierEventCount++;
+                    finalPayout += animationEvent.Win.FinalPayoutKurus;
+                }
+            }
+
+            Assert.That(matchEventCount, Is.EqualTo(score.Wins.Count));
+            Assert.That(multiplierEventCount, Is.EqualTo(score.Wins.Count));
+            Assert.That(finalPayout, Is.EqualTo(score.PayoutKurus));
+        }
+
+        [Test]
         public void MoneyMultiplierAppliesAfterLineAndComboCalculation()
         {
             var grid = new[,]
