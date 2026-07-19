@@ -87,8 +87,6 @@ namespace SerenaysGambit
         [SerializeField] private Button _victoryRestartButton;
         [SerializeField] private GameObject _gameOverOverlay;
         [SerializeField] private GameObject _victoryOverlay;
-        [SerializeField] private GameObject _thresholdCongratulationsOverlay;
-        [SerializeField] private TextMeshProUGUI _thresholdCongratulationsText;
         [SerializeField] private GameObject _maxPlusWinOverlay;
         [SerializeField] private Image _winningItemImage;
         private SymbolScoreAnimationPlayer _winningItemAnimationPlayer;
@@ -106,6 +104,9 @@ namespace SerenaysGambit
         private int _currentBatchFactor = 1;
         private readonly Color _buttonSelectedColor = new Color(1f, 0.29f, 0.26f, 1f); // Tomato red
         private readonly Color _buttonNormalColor = new Color(0.70f, 0.24f, 0.51f, 1f); // Magenta
+
+        private PaylineWin _bestThresholdWin;
+        private string _defaultMaxPlusWinTitle;
 
         private void Start()
         {
@@ -163,7 +164,13 @@ namespace SerenaysGambit
                     if (reelTransform != null)
                     {
                         var scroller = reelTransform.gameObject.AddComponent<ReelScroller>();
-                        scroller.Initialize(column, _rulesConfig.ReelStripAt(column), SymbolLabel, SymbolColor, SymbolSprite);
+                        scroller.Initialize(
+                            column,
+                            _rulesConfig.ReelStripAt(column),
+                            SymbolLabel,
+                            SymbolColor,
+                            SymbolSprite,
+                            SymbolScoreAnimation);
                         _reelScrollers[column] = scroller;
                     }
                 }
@@ -263,12 +270,6 @@ namespace SerenaysGambit
 
         private void OnDestroy()
         {
-            if (_thresholdCongratulationsOverlay != null)
-            {
-                DOTween.Kill(_thresholdCongratulationsOverlay);
-                _thresholdCongratulationsOverlay.SetActive(false);
-            }
-
             if (_maxPlusWinOverlay != null)
             {
                 DOTween.Kill(_maxPlusWinOverlay);
@@ -343,6 +344,7 @@ namespace SerenaysGambit
             _runService = new RunService(Environment.TickCount, _rulesConfig);
             _shopService = _runService.Shop;
             _state = _runService.CreateNewRun();
+            _bestThresholdWin = null;
             ResetReelStripsForRun();
             InitializeOrganViews();
             ClearGrid();
@@ -350,10 +352,6 @@ namespace SerenaysGambit
             _payoutText.text = FormatSidebarPayout(MoneyFormatter.FormatTL(BigInteger.Zero), 1, 1);
             _gameOverOverlay.SetActive(false);
             _victoryOverlay.SetActive(false);
-            if (_thresholdCongratulationsOverlay != null)
-            {
-                _thresholdCongratulationsOverlay.SetActive(false);
-            }
             if (_maxPlusWinOverlay != null)
             {
                 _maxPlusWinOverlay.SetActive(false);
@@ -455,9 +453,35 @@ namespace SerenaysGambit
 
             UpdateGrid(result.Grid, reelStripsBeforeSpin);
 
-            if (result.MaxPlusWin != null)
+            if (result.Score != null && result.Score.Wins != null)
             {
-                yield return StartCoroutine(ShowMaxPlusWin(result.MaxPlusWin));
+                for (var i = 0; i < result.Score.Wins.Count; i++)
+                {
+                    var win = result.Score.Wins[i];
+                    if (win == null) continue;
+
+                    if (_bestThresholdWin == null)
+                    {
+                        _bestThresholdWin = win;
+                    }
+                    else
+                    {
+                        bool currentIsMaxPlus = _bestThresholdWin.IsMaxPlusWin;
+                        bool newIsMaxPlus = win.IsMaxPlusWin;
+
+                        if (newIsMaxPlus && !currentIsMaxPlus)
+                        {
+                            _bestThresholdWin = win;
+                        }
+                        else if (newIsMaxPlus == currentIsMaxPlus)
+                        {
+                            if (win.FinalPayoutKurus > _bestThresholdWin.FinalPayoutKurus)
+                            {
+                                _bestThresholdWin = win;
+                            }
+                        }
+                    }
+                }
             }
 
             if (result.Score.Wins != null && result.Score.Wins.Count > 0)
@@ -473,13 +497,20 @@ namespace SerenaysGambit
                 _resultText.text = BuildResultSummary(result);
             }
 
-            // Disable congratulations screen for now to avoid overlapping with max win
-            /*
+            StopAllScoreAnimations();
+            if (result.MaxPlusWin != null)
+            {
+                yield return StartCoroutine(ShowMaxPlusWin(result.MaxPlusWin));
+            }
+
             if (result.ThresholdCleared)
             {
-                yield return StartCoroutine(ShowThresholdCongratulations(result));
+                if (_bestThresholdWin != null)
+                {
+                    yield return StartCoroutine(ShowMaxPlusWin(_bestThresholdWin, "HEY! YOUR BEST SCORING REEL WAS THIS"));
+                    _bestThresholdWin = null;
+                }
             }
-            */
 
             _isSpinAnimating = false;
 
@@ -608,9 +639,6 @@ namespace SerenaysGambit
                 if (_gameOverRestartButton == null) throw new InvalidOperationException("gameOverRestartButton is not assigned!");
                 if (_victoryRestartButton == null) throw new InvalidOperationException("victoryRestartButton is not assigned!");
 
-                if (_thresholdCongratulationsOverlay == null) throw new InvalidOperationException("thresholdCongratulationsOverlay is not assigned!");
-                if (_thresholdCongratulationsText == null) throw new InvalidOperationException("thresholdCongratulationsText is not assigned!");
-
                 if (_maxPlusWinOverlay == null) throw new InvalidOperationException("maxPlusWinOverlay is not assigned!");
                 if (_winningItemImage == null) throw new InvalidOperationException("winningItemImage is not assigned!");
                 _winningItemAnimationPlayer = _winningItemImage.GetComponent<SymbolScoreAnimationPlayer>();
@@ -620,6 +648,7 @@ namespace SerenaysGambit
                 }
                 if (_winningItemNameText == null) throw new InvalidOperationException("winningItemNameText is not assigned!");
                 if (_maxPlusWinTitleText == null) throw new InvalidOperationException("maxPlusWinTitleText is not assigned!");
+                _defaultMaxPlusWinTitle = _maxPlusWinTitleText.text;
                 
                 _winningItemRect = _winningItemImage.GetComponent<RectTransform>();
                 _maxPlusWinTitleRect = _maxPlusWinTitleText.GetComponent<RectTransform>();
@@ -726,7 +755,6 @@ namespace SerenaysGambit
                 bool isOverlayShowing = (_victoryOverlay != null && _victoryOverlay.activeSelf) ||
                                        (_gameOverOverlay != null && _gameOverOverlay.activeSelf) ||
                                        (_gambitOverlay != null) ||
-                                       (_thresholdCongratulationsOverlay != null && _thresholdCongratulationsOverlay.activeSelf) ||
                                        (_maxPlusWinOverlay != null && _maxPlusWinOverlay.activeSelf);
                 _lever.gameObject.SetActive(_state.Phase == RunPhase.Playing && !isOverlayShowing);
                 _lever.IsAvailable = _state.Phase == RunPhase.Playing && _state.RollsRemaining > 0 && !_isSpinAnimating;
@@ -1980,7 +2008,8 @@ namespace SerenaysGambit
         {
             for (int index = 0; index < cells.Count; index++)
             {
-                var image = cells[index].Image;
+                var cell = cells[index];
+                var image = cell.Image;
                 if (image == null)
                 {
                     continue;
@@ -1995,6 +2024,15 @@ namespace SerenaysGambit
                 outline.enabled = true;
                 outline.effectColor = new Color(1f, 0.8f, 0f, 1f);
                 outline.effectDistance = new Vector2(4f, 4f);
+
+                if (_reelScrollers != null && cell.Position.Column >= 0 && cell.Position.Column < _reelScrollers.Length)
+                {
+                    var scroller = _reelScrollers[cell.Position.Column];
+                    if (scroller != null)
+                    {
+                        scroller.PlayScoreAnimation(cell.Position.Row);
+                    }
+                }
             }
         }
 
@@ -2021,7 +2059,18 @@ namespace SerenaysGambit
             }
         }
 
-        private static void RestorePaylineVisuals(List<CellRef> cells)
+        private void StopAllScoreAnimations()
+        {
+            for (var index = 0; index < _reelScrollers.Length; index++)
+            {
+                if (_reelScrollers[index] != null)
+                {
+                    _reelScrollers[index].StopScoreAnimations();
+                }
+            }
+        }
+
+        private void RestorePaylineVisuals(List<CellRef> cells)
         {
             for (int index = 0; index < cells.Count; index++)
             {
@@ -2042,6 +2091,15 @@ namespace SerenaysGambit
                 {
                     cell.Text.transform.localScale = cell.OriginalTextScale;
                     cell.Text.color = cell.OriginalTextColor;
+                }
+
+                if (_reelScrollers != null && cell.Position.Column >= 0 && cell.Position.Column < _reelScrollers.Length)
+                {
+                    var scroller = _reelScrollers[cell.Position.Column];
+                    if (scroller != null)
+                    {
+                        scroller.StopScoreAnimations();
+                    }
                 }
             }
         }
@@ -2390,64 +2448,7 @@ namespace SerenaysGambit
             return transform;
         }
 
-        private IEnumerator ShowThresholdCongratulations(SpinResult result)
-        {
-            if (_thresholdCongratulationsOverlay == null
-                || _thresholdCongratulationsText == null
-                || _celebrationAnimationSettings == null
-                || _state == null)
-            {
-                yield break;
-            }
-
-            var bankAmount = MoneyFormatter.FormatTL(_state.CashKurus);
-            var followUp = result != null && result.CarriedRollsToNextThreshold > 0
-                ? "\n<size=22><color=#74D7FF>+" + result.CarriedRollsToNextThreshold + " ROLLS CARRIED FORWARD</color></size>"
-                : _state.Phase == RunPhase.Victory
-                    ? "\n<size=22><color=#FFD166>ALL THRESHOLDS CLEARED</color></size>"
-                    : "\n<size=22><color=#74D7FF>NEXT THRESHOLD UNLOCKED</color></size>";
-            _thresholdCongratulationsText.text = "<size=44><color=#FFD166>CONGRATULATIONS!</color></size>\n"
-                + "<size=28>YOU PASSED THE THRESHOLD</size>\n"
-                + "<size=26>WITH <color=#FFA001>" + bankAmount + "</color> IN THE BANK</size>"
-                + followUp;
-
-            var panelTransform = _thresholdCongratulationsOverlay.transform.Find("Panel") as RectTransform;
-            if (panelTransform != null)
-            {
-                panelTransform.localScale = Vector3.one * _celebrationAnimationSettings.ThresholdInitialScale;
-            }
-
-            _thresholdCongratulationsOverlay.SetActive(true);
-            RefreshView();
-
-            if (panelTransform != null)
-            {
-                var sequence = DOTween.Sequence(_thresholdCongratulationsOverlay);
-                var thresholdScaleUpTarget = Mathf.Max(
-                    _celebrationAnimationSettings.ThresholdInitialScale,
-                    _celebrationAnimationSettings.ThresholdOvershootScale);
-                sequence.Append(panelTransform.DOScale(
-                    Vector3.one * thresholdScaleUpTarget,
-                    _celebrationAnimationSettings.ThresholdScaleUpDuration).SetEase(Ease.OutCubic));
-                var thresholdPunchScale = Mathf.Max(
-                    thresholdScaleUpTarget,
-                    1f + _celebrationAnimationSettings.ThresholdPunchScaleUpAmount);
-                sequence.Append(panelTransform.DOScale(
-                    Vector3.one * thresholdPunchScale,
-                    _celebrationAnimationSettings.ThresholdPunchScaleUpDuration).SetEase(Ease.OutCubic));
-                sequence.AppendInterval(_celebrationAnimationSettings.ThresholdHoldDuration);
-                yield return sequence.WaitForCompletion();
-            }
-            else
-            {
-                yield return new WaitForSeconds(_celebrationAnimationSettings.ThresholdCongratulationsDuration);
-            }
-
-            _thresholdCongratulationsOverlay.SetActive(false);
-            RefreshView();
-        }
-
-        private IEnumerator ShowMaxPlusWin(PaylineWin win)
+        private IEnumerator ShowMaxPlusWin(PaylineWin win, string overrideTitle = null)
         {
             if (_maxPlusWinOverlay == null || win == null || _celebrationAnimationSettings == null)
             {
@@ -2461,10 +2462,14 @@ namespace SerenaysGambit
                     _winningItemNameText.font = _payoutText.font;
                     _winningItemNameText.fontSharedMaterial = _payoutText.fontSharedMaterial;
                 }
-                if (_maxPlusWinTitleText != null && (_maxPlusWinTitleText.font == null || _maxPlusWinTitleText.font == TMP_Settings.defaultFontAsset))
+                if (_maxPlusWinTitleText != null)
                 {
-                    _maxPlusWinTitleText.font = _payoutText.font;
-                    _maxPlusWinTitleText.fontSharedMaterial = _payoutText.fontSharedMaterial;
+                    _maxPlusWinTitleText.text = string.IsNullOrEmpty(overrideTitle) ? _defaultMaxPlusWinTitle : overrideTitle;
+                    if (_maxPlusWinTitleText.font == null || _maxPlusWinTitleText.font == TMP_Settings.defaultFontAsset)
+                    {
+                        _maxPlusWinTitleText.font = _payoutText.font;
+                        _maxPlusWinTitleText.fontSharedMaterial = _payoutText.fontSharedMaterial;
+                    }
                 }
             }
 

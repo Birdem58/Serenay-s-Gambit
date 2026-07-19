@@ -143,6 +143,9 @@ namespace SerenaysGambit
         public static readonly BigInteger BaseLinePayoutKurus = new BigInteger(1000); // TL 10.00
         public static readonly BigInteger TripleKissMultiplierNumerator = new BigInteger(4692);
         public static readonly BigInteger TripleKissMultiplierDenominator = new BigInteger(100);
+        public const int MaxPlusWinScoringInterval = 5;
+        public const int MaxPlusWinChanceDivisor = 3;
+        public const int MaxPlusWinPayoutMultiplier = 100;
 
         public static readonly SymbolKind[][] InitialReels =
         {
@@ -834,6 +837,7 @@ namespace SerenaysGambit
             ThresholdLevel = 1;
             CashKurus = BigInteger.Zero;
             RollsRemaining = Config.BaseRolls;
+            ScoringCount = 0;
             OrganLosses = 0;
             RefreshTickets = 0;
             Phase = RunPhase.Playing;
@@ -845,6 +849,7 @@ namespace SerenaysGambit
         public int ThresholdLevel { get; internal set; }
         public BigInteger CashKurus { get; set; }
         public int RollsRemaining { get; set; }
+        public int ScoringCount { get; private set; }
         public int OrganLosses { get; internal set; }
         public int RefreshTickets { get; internal set; }
         public void AddRefreshTickets(int amount) { RefreshTickets += amount; }
@@ -854,6 +859,14 @@ namespace SerenaysGambit
         public ShopState Shop { get; private set; }
         public RunStats Stats { get; private set; }
         public List<ShopOffer> ShopOffers { get { return Shop.Offers; } }
+
+        internal void RegisterScoring()
+        {
+            if (ScoringCount < int.MaxValue)
+            {
+                ScoringCount++;
+            }
+        }
 
         public int OwnedUpgradeCount(ShopOfferKind kind)
         {
@@ -958,6 +971,23 @@ namespace SerenaysGambit
         public int ComboMultiplier { get; private set; }
         public int BatchFactor { get; private set; }
 
+        internal void ApplyPayoutMultiplier(BigInteger multiplier)
+        {
+            if (multiplier < BigInteger.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(multiplier));
+            }
+
+            PayoutKurus *= multiplier;
+            foreach (var win in Wins)
+            {
+                if (win != null)
+                {
+                    win.FinalPayoutKurus *= multiplier;
+                }
+            }
+        }
+
         public PaylineWin MaxPlusWin
         {
             get
@@ -1003,6 +1033,7 @@ namespace SerenaysGambit
         public SymbolKind[,] Grid { get; internal set; }
         public ScoredSpin Score { get; internal set; }
         public PaylineWin MaxPlusWin { get; internal set; }
+        public bool MaxPlusWinTriggered { get; internal set; }
         public bool ThresholdCleared { get; internal set; }
         public bool OrganLost { get; internal set; }
         public string LostOrganName { get; internal set; }
@@ -1360,6 +1391,23 @@ namespace SerenaysGambit
             state.RollsRemaining -= batchFactor;
             var grid = CreateGrid(state.Config);
             var score = SlotScoring.Evaluate(grid, state.Modifiers, batchFactor);
+
+            var isScoring = score.Wins != null && score.Wins.Count > 0;
+            if (isScoring)
+            {
+                state.RegisterScoring();
+            }
+
+            var maxPlusWinTriggered = isScoring
+                && state.ScoringCount % GameBalance.MaxPlusWinScoringInterval == 0
+                && score.MaxPlusWin != null
+                && _random.Next(GameBalance.MaxPlusWinChanceDivisor) == 0;
+            if (maxPlusWinTriggered)
+            {
+                // Max Plus is a bonus to the complete scoring result, not just its highlighted line.
+                score.ApplyPayoutMultiplier(new BigInteger(GameBalance.MaxPlusWinPayoutMultiplier));
+            }
+
             state.Stats.RecordSpin(score);
             state.CashKurus += score.PayoutKurus;
 
@@ -1369,7 +1417,8 @@ namespace SerenaysGambit
                 Message = score.Wins.Count == 0 ? "No matching paylines." : "Winning paylines resolved.",
                 Grid = grid,
                 Score = score,
-                MaxPlusWin = score.MaxPlusWin,
+                MaxPlusWin = maxPlusWinTriggered ? score.MaxPlusWin : null,
+                MaxPlusWinTriggered = maxPlusWinTriggered,
                 CashBeforeSpinKurus = cashBeforeSpin,
                 TargetBeforeSpinKurus = targetBeforeSpin,
                 ThresholdLevelBeforeSpin = thresholdLevelBeforeSpin

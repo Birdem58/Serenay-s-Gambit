@@ -14,6 +14,7 @@ namespace SerenaysGambit
     public sealed class SymbolScoreAnimationPlayer : MonoBehaviour
     {
         private Image _image;
+        private SpriteRenderer _spriteRenderer;
         private Animator _animator;
         private AnimationClip _scoreAnimation;
         private Sprite _defaultSprite;
@@ -97,6 +98,13 @@ namespace SerenaysGambit
             // looping enabled still behaves as a single score animation.
             _clipPlayable.SetTime(nextTime);
             _graph.Evaluate(0f);
+
+            // Some authored clips target SpriteRenderer while the reel presentation uses a
+            // UI Image. Mirror that binding after evaluation so both clip formats are visible.
+            if (_spriteRenderer != null && _spriteRenderer.sprite != null && _image != null)
+            {
+                _image.sprite = _spriteRenderer.sprite;
+            }
         }
 
         private void RestoreDefaultVisual()
@@ -105,6 +113,11 @@ namespace SerenaysGambit
             {
                 _image.sprite = _defaultSprite;
                 _image.color = _defaultColor;
+            }
+
+            if (_spriteRenderer != null)
+            {
+                _spriteRenderer.sprite = null;
             }
 
             if (_hasDefaultVisual)
@@ -120,6 +133,16 @@ namespace SerenaysGambit
             if (_image == null)
             {
                 _image = GetComponent<Image>();
+            }
+
+            if (_spriteRenderer == null)
+            {
+                _spriteRenderer = GetComponent<SpriteRenderer>();
+                if (_spriteRenderer == null)
+                {
+                    _spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+                }
+                _spriteRenderer.enabled = false;
             }
 
             if (_animator == null)
