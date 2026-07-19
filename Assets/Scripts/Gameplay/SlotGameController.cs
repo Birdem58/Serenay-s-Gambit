@@ -72,7 +72,6 @@ namespace SerenaysGambit
         private bool _isFirstRefresh = true;
         [SerializeField] private TextMeshProUGUI _payoutText;
         [SerializeField] private TextMeshProUGUI _resultText;
-        [SerializeField] private TextMeshProUGUI _shopWalletText;
         [SerializeField] private RectTransform _ownedUpgradesLayout;
         [SerializeField] private UpgradeTooltip _upgradeTooltip;
         [SerializeField] private TextMeshProUGUI[] _offerLabels = new TextMeshProUGUI[3];
@@ -698,7 +697,6 @@ namespace SerenaysGambit
                 _payoutTextBaseScale = _payoutText.transform.localScale;
                 _hasPayoutTextBaseScale = true;
                 if (_resultText == null) throw new InvalidOperationException("resultText is not assigned!");
-                if (_shopWalletText == null) throw new InvalidOperationException("shopWalletText is not assigned!");
                 if (_ownedUpgradesLayout == null) throw new InvalidOperationException("ownedUpgradesLayout is not assigned!");
                 if (_upgradeTooltip == null) throw new InvalidOperationException("upgradeTooltip is not assigned!");
                 if (_ownedUpgradePrefab == null)
@@ -871,7 +869,6 @@ namespace SerenaysGambit
             UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
             _rollsText.text = FormatSidebarRolls(_state.RollsRemaining);
             RefreshOrganViews(!_isFirstRefresh);
-            _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
             RefreshOwnedUpgradeViews();
             _isFirstRefresh = false;
 
@@ -2848,7 +2845,7 @@ namespace SerenaysGambit
                 {
                     audioSource = gameObject.AddComponent<AudioSource>();
                 }
-                audioSource.PlayOneShot(_dingClip);
+                audioSource.PlayOneShot(_dingClip, 0.5f);
             }
         }
 

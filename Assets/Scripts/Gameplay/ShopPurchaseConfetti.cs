@@ -51,7 +51,7 @@ namespace SerenaysGambit
         {
             if (_confettiPrefab == null) return null;
 
-            GameObject obj = Instantiate(_confettiPrefab, transform);
+            GameObject obj = Instantiate(_confettiPrefab, transform.parent);
             obj.SetActive(false);
             _pool.Add(obj);
             return obj;

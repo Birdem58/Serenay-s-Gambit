@@ -5031,7 +5031,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &624778994
 RectTransform:
   m_ObjectHideFlags: 0
@@ -7584,7 +7584,7 @@ RectTransform:
   m_GameObject: {fileID: 1030297376}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1706947570}
@@ -11473,7 +11473,6 @@ MonoBehaviour:
   _rollsText: {fileID: 22083131}
   _roundText: {fileID: 667412506}
   _organsLayout: {fileID: 630785803}
-  _ticketsText: {fileID: 0}
   _payoutText: {fileID: 597620270}
   _resultText: {fileID: 1965341770}
   _shopWalletText: {fileID: 0}
