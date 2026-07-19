@@ -17,6 +17,7 @@ namespace SerenaysGambit
         private TextMeshProUGUI _descriptionText;
         private TextMeshProUGUI _detailsText;
         private UpgradeTooltipTrigger _source;
+        private Vector2 _pointerPosition;
 
         private void Awake()
         {
@@ -32,29 +33,48 @@ namespace SerenaysGambit
             }
 
             _source = source;
+            _pointerPosition = pointerPosition;
             if (!gameObject.activeSelf)
             {
                 gameObject.SetActive(true);
             }
 
             _canvasGroup.alpha = 1f;
+            UpdateText(title, description, details);
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_panel);
+            PositionAt(pointerPosition);
+        }
+
+        public void Refresh(UpgradeTooltipTrigger source, string title, string description, string details)
+        {
+            EnsureReferences();
+            if (source == null || source != _source || !gameObject.activeSelf || _panel == null)
+            {
+                return;
+            }
+
+            UpdateText(title, description, details);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_panel);
+            PositionAt(_pointerPosition);
+        }
+
+        private void UpdateText(string title, string description, string details)
+        {
             if (_titleText != null)
             {
-                _titleText.text = title;
+                _titleText.text = title ?? string.Empty;
             }
 
             if (_descriptionText != null)
             {
-                _descriptionText.text = description;
+                _descriptionText.text = description ?? string.Empty;
             }
 
             if (_detailsText != null)
             {
-                _detailsText.text = details;
+                _detailsText.text = details ?? string.Empty;
             }
-
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_panel);
-            PositionAt(pointerPosition);
         }
 
         public void Hide(UpgradeTooltipTrigger source = null)

@@ -133,8 +133,23 @@ namespace SerenaysGambit.Tests
             var modifiers = new RunModifiers();
             var single = SlotScoring.Evaluate(grid, modifiers, 1);
             var batch = SlotScoring.Evaluate(grid, modifiers, 5);
+            var largeBatch = SlotScoring.Evaluate(grid, modifiers, 10000);
 
             Assert.That(batch.PayoutKurus, Is.EqualTo(single.PayoutKurus * 5));
+            Assert.That(largeBatch.PayoutKurus, Is.EqualTo(single.PayoutKurus * 10000));
+        }
+
+        [TestCase(1)]
+        [TestCase(5)]
+        [TestCase(10)]
+        [TestCase(100)]
+        [TestCase(1000)]
+        [TestCase(10000)]
+        public void SupportedBatchFactorsAreAccepted(int batchFactor)
+        {
+            Assert.That(GameBalance.IsSupportedBatchFactor(batchFactor), Is.True);
+            var score = SlotScoring.Evaluate(CreateWinningGridFor(PaylineGroup.Horizontal), new RunModifiers(), batchFactor);
+            Assert.That(score.BatchFactor, Is.EqualTo(batchFactor));
         }
 
         [TestCase(PaylineGroup.Horizontal)]
@@ -270,6 +285,43 @@ namespace SerenaysGambit.Tests
             Assert.That(matchEventCount, Is.EqualTo(10));
             Assert.That(cellRewardCount, Is.EqualTo(30));
             Assert.That(events[events.Count - 1].Kind, Is.EqualTo(RewardAnimationEventKind.Multiplier));
+        }
+
+        [Test]
+        public void LargeBatchRewardAnimationUsesAggregatedVisiblePulsesAndKeepsTheExactTotal()
+        {
+            var payline = new Payline(
+                "Test line",
+                0,
+                PaylineGroup.Horizontal,
+                new GridPosition(0, 0),
+                new GridPosition(0, 1),
+                new GridPosition(0, 2));
+            var win = new PaylineWin(payline, SymbolKind.Cat, new BigInteger(1500), false);
+            var score = new ScoredSpin(
+                new List<PaylineWin> { win },
+                new BigInteger(1500) * 10000,
+                1,
+                10000);
+
+            var events = RewardAnimationQueueBuilder.Build(
+                score,
+                RewardAnimationQueueBuilder.MaxVisibleMatchEventsForBatch(score.BatchFactor));
+            var visibleTotal = BigInteger.Zero;
+            var matchEventCount = 0;
+            foreach (var animationEvent in events)
+            {
+                if (animationEvent.Kind == RewardAnimationEventKind.MatchAddition)
+                {
+                    visibleTotal += animationEvent.BaseAmountKurus;
+                    matchEventCount++;
+                }
+            }
+
+            Assert.That(matchEventCount, Is.EqualTo(5));
+            Assert.That(visibleTotal, Is.EqualTo(win.LinePayoutKurus * 10000));
+            Assert.That(events[events.Count - 1].Kind, Is.EqualTo(RewardAnimationEventKind.Multiplier));
+            Assert.That(RewardAnimationQueueBuilder.QueueLengthForSpeed(score), Is.EqualTo(10001));
         }
 
         [Test]

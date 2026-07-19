@@ -16,6 +16,11 @@ namespace SerenaysGambit
             _title = title ?? string.Empty;
             _description = description ?? string.Empty;
             _details = details ?? string.Empty;
+
+            if (_tooltip != null)
+            {
+                _tooltip.Refresh(this, _title, _description, _details);
+            }
         }
 
         public void OnPointerEnter(PointerEventData eventData)

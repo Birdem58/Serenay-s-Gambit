@@ -57,11 +57,17 @@ namespace SerenaysGambit
     {
         public static List<RewardAnimationEvent> Build(ScoredSpin score)
         {
+            return Build(score, int.MaxValue);
+        }
+
+        public static List<RewardAnimationEvent> Build(ScoredSpin score, int maxVisibleMatchEvents)
+        {
             if (score == null)
             {
                 throw new ArgumentNullException(nameof(score));
             }
 
+            var safeMaxVisibleMatchEvents = Math.Max(1, maxVisibleMatchEvents);
             var events = new List<RewardAnimationEvent>();
             if (score.Wins == null)
             {
@@ -72,23 +78,39 @@ namespace SerenaysGambit
             {
                 var win = score.Wins[winIndex];
                 var positions = win.Payline.Positions;
-                var cellAmounts = SplitAcrossCells(win.LinePayoutKurus, positions.Length);
                 var totalHits = score.RewardAnimationCount(win);
+                var visibleHitCount = Math.Min(totalHits, safeMaxVisibleMatchEvents);
+                var totalMatchAmount = win.LinePayoutKurus * totalHits;
+                var visibleAmount = totalMatchAmount / visibleHitCount;
+                var visibleRemainder = totalMatchAmount % visibleHitCount;
 
-                for (var hitIndex = 0; hitIndex < totalHits; hitIndex++)
+                for (var visibleHitIndex = 0; visibleHitIndex < visibleHitCount; visibleHitIndex++)
                 {
+                    var eventAmount = visibleAmount;
+                    if (visibleHitIndex == visibleHitCount - 1)
+                    {
+                        eventAmount += visibleRemainder;
+                    }
+
+                    var cellAmounts = SplitAcrossCells(eventAmount, positions.Length);
                     var cellRewards = new List<RewardAnimationCellReward>(positions.Length);
                     for (var cellIndex = 0; cellIndex < positions.Length; cellIndex++)
                     {
                         cellRewards.Add(new RewardAnimationCellReward(positions[cellIndex], cellAmounts[cellIndex]));
                     }
 
+                    var representativeHitIndex = totalHits == visibleHitCount
+                        ? visibleHitIndex
+                        : (int)Math.Min(
+                            totalHits - 1L,
+                            ((long)visibleHitIndex * totalHits) / visibleHitCount);
+
                     events.Add(new RewardAnimationEvent(
                         RewardAnimationEventKind.MatchAddition,
                         win,
-                        hitIndex,
+                        representativeHitIndex,
                         totalHits,
-                        win.LinePayoutKurus,
+                        eventAmount,
                         cellRewards));
                 }
 
@@ -97,11 +119,60 @@ namespace SerenaysGambit
                     win,
                     totalHits,
                     totalHits,
-                    win.LinePayoutKurus * totalHits,
+                    totalMatchAmount,
                     new List<RewardAnimationCellReward>()));
             }
 
             return events;
+        }
+
+        public static int MaxVisibleMatchEventsForBatch(int batchFactor)
+        {
+            if (batchFactor <= 10)
+            {
+                return int.MaxValue;
+            }
+
+            if (batchFactor <= 100)
+            {
+                return 25;
+            }
+
+            if (batchFactor <= 1000)
+            {
+                return 10;
+            }
+
+            return 5;
+        }
+
+        public static int QueueLengthForSpeed(ScoredSpin score)
+        {
+            if (score == null)
+            {
+                throw new ArgumentNullException(nameof(score));
+            }
+
+            long queueLength = 0;
+            if (score.Wins != null)
+            {
+                for (var winIndex = 0; winIndex < score.Wins.Count; winIndex++)
+                {
+                    var win = score.Wins[winIndex];
+                    if (win == null)
+                    {
+                        continue;
+                    }
+
+                    queueLength += (long)score.RewardAnimationCount(win) + 1L;
+                    if (queueLength >= int.MaxValue)
+                    {
+                        return int.MaxValue;
+                    }
+                }
+            }
+
+            return (int)Math.Max(1L, queueLength);
         }
 
         public static BigInteger[] SplitAcrossCells(BigInteger amountKurus, int cellCount)

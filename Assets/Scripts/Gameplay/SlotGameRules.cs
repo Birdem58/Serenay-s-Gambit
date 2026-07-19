@@ -140,6 +140,7 @@ namespace SerenaysGambit
         public const int OrganCount = 5;
         public const int BaseRolls = 10;
         public const int FreeSpinBundle = 20;
+        public const int MaximumBatchFactor = 10000;
         public static readonly BigInteger BaseLinePayoutKurus = new BigInteger(1000); // TL 10.00
         public static readonly BigInteger TripleKissMultiplierNumerator = new BigInteger(4692);
         public static readonly BigInteger TripleKissMultiplierDenominator = new BigInteger(100);
@@ -187,6 +188,16 @@ namespace SerenaysGambit
                 case 5: return "Kalp";
                 default: return "Organ";
             }
+        }
+
+        public static bool IsSupportedBatchFactor(int batchFactor)
+        {
+            return batchFactor == 1
+                || batchFactor == 5
+                || batchFactor == 10
+                || batchFactor == 100
+                || batchFactor == 1000
+                || batchFactor == MaximumBatchFactor;
         }
     }
 
@@ -1138,7 +1149,9 @@ namespace SerenaysGambit
                 throw new ArgumentException("The slot grid must be 3 by 3.", nameof(grid));
             }
 
-            if (batchFactor < 1 || batchFactor > 10)
+            // TrySpin accepts the named batch presets, but it may reduce a preset to the
+            // exact number of rolls remaining (for example, 10x can become 8x).
+            if (batchFactor < 1 || batchFactor > GameBalance.MaximumBatchFactor)
             {
                 throw new ArgumentOutOfRangeException(nameof(batchFactor));
             }
@@ -1369,9 +1382,9 @@ namespace SerenaysGambit
                 return RejectedResult("Start a new run to spin again.");
             }
 
-            if (batchFactor != 1 && batchFactor != 5 && batchFactor != 10)
+            if (!GameBalance.IsSupportedBatchFactor(batchFactor))
             {
-                return RejectedResult("Batch must be 1x, 5x, or 10x.");
+                return RejectedResult("Batch must be 1x, 5x, 10x, 100x, 1000x, or 10000x.");
             }
 
             if (state.RollsRemaining < batchFactor)

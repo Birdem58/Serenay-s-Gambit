@@ -102,7 +102,10 @@ namespace SerenaysGambit.Tests
             var buttonsRow = batchControls.Find("ButtonsRow");
             Assert.That(buttonsRow, Is.Not.Null);
             Assert.That(buttonsRow.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
-            Assert.That(buttonsRow.childCount, Is.EqualTo(3));
+            Assert.That(buttonsRow.childCount, Is.EqualTo(6));
+            Assert.That(buttonsRow.Find("Spin100xButton"), Is.Not.Null);
+            Assert.That(buttonsRow.Find("Spin1000xButton"), Is.Not.Null);
+            Assert.That(buttonsRow.Find("Spin10000xButton"), Is.Not.Null);
             Assert.That(offerList.childCount, Is.EqualTo(3));
         }
 
