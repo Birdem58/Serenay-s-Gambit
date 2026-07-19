@@ -3,7 +3,37 @@ guid: 82042df15e92eb14f951b5dc5edf9ec0
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Bottom1
+    second: {fileID: 2100000, guid: 7f081f9f14734254d9cf887785838e5e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Bottom2
+    second: {fileID: 2100000, guid: 63dec8e4bc282cd4e8bd7990f1fcc3e8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lever
+    second: {fileID: 2100000, guid: 476aba8b7a58fe64da069382c20f545c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Middle
+    second: {fileID: 2100000, guid: d97bbc6c8e5202e46b7717d1b2340ee5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Screen
+    second: {fileID: 2100000, guid: 5a0ea828c5ec93248a6e61c086fa0538, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Top
+    second: {fileID: 2100000, guid: df21e4e982562fc43bf9775d9b0f4f44, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
