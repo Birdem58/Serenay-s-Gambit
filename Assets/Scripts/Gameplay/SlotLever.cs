@@ -143,5 +143,34 @@ namespace SerenaysGambit
 
             _isAnimating = false;
         }
+
+        public System.Collections.IEnumerator PlayPullAnimationOnly()
+        {
+            _isAnimating = true;
+
+            if (_animator != null)
+            {
+                _animator.Play("LovelyArms", 0, 0f);
+                _animator.speed = 1f;
+
+                float duration = 0.4167f;
+                if (_animator.runtimeAnimatorController != null && _animator.runtimeAnimatorController.animationClips.Length > 0)
+                {
+                    duration = _animator.runtimeAnimatorController.animationClips[0].length;
+                }
+
+                yield return new WaitForSeconds(duration);
+
+                _animator.Play("LovelyArms", 0, 0f);
+                _animator.Update(0f);
+                _animator.speed = 0f;
+            }
+            else
+            {
+                yield return null;
+            }
+
+            _isAnimating = false;
+        }
     }
 }

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c754c134c31b4759b5633378eaaeddc, type: 3}
+  m_Name: IntroDialogue
+  m_EditorClassIdentifier: 
+  lines:
+  - text: 'have sacrificed everything. My wife, my first child, my second child,
+      my third child, my fourth child, '
+  - text: my fifth child, my sixth child, my seventh child, my eighth child, my ninth
+      child, my tenth child...
+  - text: and then my parents, my siblings, my grandparents, my aunts, my uncles,
+      my cousins, and every single one of my relatives.
+  - text: But now, I think... I think it's time to pay the price. Dear Serenay, please
+      help me.

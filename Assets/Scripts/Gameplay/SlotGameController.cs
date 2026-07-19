@@ -53,55 +53,55 @@ namespace SerenaysGambit
         private float MultiplierStepDuration => _animationSettings != null ? _animationSettings.MultiplierStepDuration : 0.24f;
         private float QueueSpeedupPerEvent => _animationSettings != null ? _animationSettings.QueueSpeedupPerEvent : 0.08f;
 
-        private TextMeshProUGUI _cashText;
-        private TextMeshProUGUI _targetText;
-        private TextMeshProUGUI _rollsText;
-        private TextMeshProUGUI _roundText;
-        private RectTransform _organsLayout;
+        [SerializeField] private TextMeshProUGUI _cashText;
+        [SerializeField] private TextMeshProUGUI _targetText;
+        [SerializeField] private TextMeshProUGUI _rollsText;
+        [SerializeField] private TextMeshProUGUI _roundText;
+        [SerializeField] private RectTransform _organsLayout;
         private readonly List<OwnedUpgradeView> _organViews = new List<OwnedUpgradeView>();
         private readonly Sprite[] _organSprites = new Sprite[GameBalance.OrganCount];
         private bool _isFirstRefresh = true;
-        private TextMeshProUGUI _ticketsText;
-        private TextMeshProUGUI _payoutText;
-        private TextMeshProUGUI _resultText;
-        private TextMeshProUGUI _shopWalletText;
-        private RectTransform _ownedUpgradesLayout;
-        private UpgradeTooltip _upgradeTooltip;
-        private TextMeshProUGUI _refreshLabel;
-        private readonly TextMeshProUGUI[] _offerLabels = new TextMeshProUGUI[3];
+        [SerializeField] private TextMeshProUGUI _ticketsText;
+        [SerializeField] private TextMeshProUGUI _payoutText;
+        [SerializeField] private TextMeshProUGUI _resultText;
+        [SerializeField] private TextMeshProUGUI _shopWalletText;
+        [SerializeField] private RectTransform _ownedUpgradesLayout;
+        [SerializeField] private UpgradeTooltip _upgradeTooltip;
+        [SerializeField] private TextMeshProUGUI _refreshLabel;
+        [SerializeField] private TextMeshProUGUI[] _offerLabels = new TextMeshProUGUI[3];
         private readonly Image[] _offerIcons = new Image[3];
-        private readonly Button[] _offerButtons = new Button[3];
+        [SerializeField] private Button[] _offerButtons = new Button[3];
         private readonly Image[,] _cellImages = new Image[GameBalance.GridRows, GameBalance.GridColumns];
         private readonly TextMeshProUGUI[,] _cellTexts = new TextMeshProUGUI[GameBalance.GridRows, GameBalance.GridColumns];
 
-        private RectTransform _thresholdBarRect;
-        private Image _thresholdBarBackground;
-        private Image _thresholdBarFill;
-        private TextMeshProUGUI _thresholdBarText;
+        [SerializeField] private RectTransform _thresholdBarRect;
+        [SerializeField] private Image _thresholdBarBackground;
+        [SerializeField] private Image _thresholdBarFill;
+        [SerializeField] private TextMeshProUGUI _thresholdBarText;
 
-        private Button _spin1xButton;
-        private Button _spin5xButton;
-        private Button _spin10xButton;
-        private Button _refreshButton;
-        private Button _gameOverRestartButton;
-        private Button _victoryRestartButton;
-        private GameObject _gameOverOverlay;
-        private GameObject _victoryOverlay;
-        private GameObject _thresholdCongratulationsOverlay;
-        private TextMeshProUGUI _thresholdCongratulationsText;
-        private GameObject _maxPlusWinOverlay;
-        private Image _winningItemImage;
+        [SerializeField] private Button _spin1xButton;
+        [SerializeField] private Button _spin5xButton;
+        [SerializeField] private Button _spin10xButton;
+        [SerializeField] private Button _refreshButton;
+        [SerializeField] private Button _gameOverRestartButton;
+        [SerializeField] private Button _victoryRestartButton;
+        [SerializeField] private GameObject _gameOverOverlay;
+        [SerializeField] private GameObject _victoryOverlay;
+        [SerializeField] private GameObject _thresholdCongratulationsOverlay;
+        [SerializeField] private TextMeshProUGUI _thresholdCongratulationsText;
+        [SerializeField] private GameObject _maxPlusWinOverlay;
+        [SerializeField] private Image _winningItemImage;
         private SymbolScoreAnimationPlayer _winningItemAnimationPlayer;
-        private TextMeshProUGUI _winningItemNameText;
-        private TextMeshProUGUI _maxPlusWinTitleText;
-        private RectTransform _winningItemRect;
-        private RectTransform _maxPlusWinTitleRect;
-        private TextMeshProUGUI _gameOverRunStatsText;
-        private TextMeshProUGUI _victoryRunStatsText;
+        [SerializeField] private TextMeshProUGUI _winningItemNameText;
+        [SerializeField] private TextMeshProUGUI _maxPlusWinTitleText;
+        [SerializeField] private RectTransform _winningItemRect;
+        [SerializeField] private RectTransform _maxPlusWinTitleRect;
+        [SerializeField] private TextMeshProUGUI _gameOverRunStatsText;
+        [SerializeField] private TextMeshProUGUI _victoryRunStatsText;
         private Canvas _gameCanvas;
         private RectTransform _rewardTextParent;
 
-        private SlotLever _lever;
+        [SerializeField] private SlotLever _lever;
         [SerializeField] private OwnedUpgradeView _ownedUpgradePrefab;
         private int _currentBatchFactor = 1;
         private readonly Color _buttonSelectedColor = new Color(1f, 0.29f, 0.26f, 1f); // Tomato red
@@ -455,6 +455,11 @@ namespace SerenaysGambit
 
             UpdateGrid(result.Grid, reelStripsBeforeSpin);
 
+            if (result.MaxPlusWin != null)
+            {
+                yield return StartCoroutine(ShowMaxPlusWin(result.MaxPlusWin));
+            }
+
             if (result.Score.Wins != null && result.Score.Wins.Count > 0)
             {
                 yield return StartCoroutine(AnimateWinHighlighting(result));
@@ -466,11 +471,6 @@ namespace SerenaysGambit
                     result.Score.ComboMultiplier,
                     result.Score.BatchFactor);
                 _resultText.text = BuildResultSummary(result);
-            }
-
-            if (result.MaxPlusWin != null)
-            {
-                yield return StartCoroutine(ShowMaxPlusWin(result.MaxPlusWin));
             }
 
             // Disable congratulations screen for now to avoid overlapping with max win
@@ -537,11 +537,12 @@ namespace SerenaysGambit
             var root = canvas.transform;
             try
             {
-                _cashText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/CashText");
-                _targetText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/TargetText");
-                _roundText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/RoundText");
-                _rollsText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/RollsText");
-                _organsLayout = Require<RectTransform>(root, "MainContent/VerticalShelfPanel/OrgansText");
+                if (_cashText == null) throw new InvalidOperationException("cashText is not assigned!");
+                if (_targetText == null) throw new InvalidOperationException("targetText is not assigned!");
+                if (_roundText == null) throw new InvalidOperationException("roundText is not assigned!");
+                if (_rollsText == null) throw new InvalidOperationException("rollsText is not assigned!");
+
+                if (_organsLayout == null) throw new InvalidOperationException("organsLayout is not assigned!");
                 var organsTextComp = _organsLayout.GetComponent<TextMeshProUGUI>();
                 if (organsTextComp != null)
                 {
@@ -559,36 +560,34 @@ namespace SerenaysGambit
                 organsLayoutGroup.childControlWidth = false;
                 organsLayoutGroup.childControlHeight = false;
 
-                _ticketsText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/TicketsText");
-                _payoutText = Require<TextMeshProUGUI>(root, "MainContent/VerticalShelfPanel/PayoutText");
+                if (_ticketsText == null) throw new InvalidOperationException("ticketsText is not assigned!");
+                if (_payoutText == null) throw new InvalidOperationException("payoutText is not assigned!");
                 _payoutText.richText = true;
-                _resultText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ResultText");
-                _shopWalletText = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/ShopWalletText");
-                _ownedUpgradesLayout = Require<RectTransform>(root, "MainContent/VerticalShelfPanel/OwnedUpgradesLayout");
-                _upgradeTooltip = Require<UpgradeTooltip>(root, "UpgradeTooltip");
+                if (_resultText == null) throw new InvalidOperationException("resultText is not assigned!");
+                if (_shopWalletText == null) throw new InvalidOperationException("shopWalletText is not assigned!");
+                if (_ownedUpgradesLayout == null) throw new InvalidOperationException("ownedUpgradesLayout is not assigned!");
+                if (_upgradeTooltip == null) throw new InvalidOperationException("upgradeTooltip is not assigned!");
                 if (_ownedUpgradePrefab == null)
                 {
                     throw new InvalidOperationException("SlotGameController requires an owned-upgrade prefab reference.");
                 }
 
-                _thresholdBarRect = Require<RectTransform>(root, "MainContent/SlotMachinePanel/ThresholdBar");
-                _thresholdBarBackground = Require<Image>(root, "MainContent/SlotMachinePanel/ThresholdBar");
-                _thresholdBarFill = Require<Image>(root, "MainContent/SlotMachinePanel/ThresholdBar/Fill");
-                _thresholdBarText = Require<TextMeshProUGUI>(root, "MainContent/SlotMachinePanel/ThresholdBar/Label");
+                if (_thresholdBarRect == null) throw new InvalidOperationException("thresholdBarRect is not assigned!");
+                if (_thresholdBarBackground == null) throw new InvalidOperationException("thresholdBarBackground is not assigned!");
+                if (_thresholdBarFill == null) throw new InvalidOperationException("thresholdBarFill is not assigned!");
+                if (_thresholdBarText == null) throw new InvalidOperationException("thresholdBarText is not assigned!");
 
-                var rollingPinObj = GameObject.Find("RollingPin");
-                _lever = rollingPinObj != null ? rollingPinObj.GetComponent<SlotLever>() : null;
-                _spin1xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin1xButton");
-                _spin5xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin5xButton");
-                _spin10xButton = Require<Button>(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin10xButton");
-                _refreshButton = Require<Button>(root, "MainContent/SerenayShopPanel/RefreshButton");
-                _refreshLabel = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/RefreshButton/Label");
+                if (_lever == null) throw new InvalidOperationException("lever is not assigned!");
+                if (_spin1xButton == null) throw new InvalidOperationException("spin1xButton is not assigned!");
+                if (_spin5xButton == null) throw new InvalidOperationException("spin5xButton is not assigned!");
+                if (_spin10xButton == null) throw new InvalidOperationException("spin10xButton is not assigned!");
+                if (_refreshButton == null) throw new InvalidOperationException("refreshButton is not assigned!");
+                if (_refreshLabel == null) throw new InvalidOperationException("refreshLabel is not assigned!");
 
                 for (var offerIndex = 0; offerIndex < 3; offerIndex++)
                 {
-                    var name = "Offer" + (offerIndex + 1);
-                    _offerButtons[offerIndex] = Require<Button>(root, "MainContent/SerenayShopPanel/OfferList/" + name);
-                    _offerLabels[offerIndex] = Require<TextMeshProUGUI>(root, "MainContent/SerenayShopPanel/OfferList/" + name + "/Label");
+                    if (_offerButtons[offerIndex] == null) throw new InvalidOperationException("offerButtons[" + offerIndex + "] is null!");
+                    if (_offerLabels[offerIndex] == null) throw new InvalidOperationException("offerLabels[" + offerIndex + "] is null!");
                     _offerIcons[offerIndex] = CreateOfferIcon(_offerLabels[offerIndex]);
                 }
 
@@ -602,25 +601,26 @@ namespace SerenaysGambit
                     }
                 }
 
-                _gameOverOverlay = RequireTransform(root, "GameOverOverlay").gameObject;
-                _victoryOverlay = RequireTransform(root, "VictoryOverlay").gameObject;
-                _gameOverRunStatsText = Require<TextMeshProUGUI>(root, "GameOverOverlay/RunStatsText");
-                _victoryRunStatsText = Require<TextMeshProUGUI>(root, "VictoryOverlay/RunStatsText");
-                _gameOverRestartButton = Require<Button>(root, "GameOverOverlay/RestartButton");
-                _victoryRestartButton = Require<Button>(root, "VictoryOverlay/RestartButton");
+                if (_gameOverOverlay == null) throw new InvalidOperationException("gameOverOverlay is not assigned!");
+                if (_victoryOverlay == null) throw new InvalidOperationException("victoryOverlay is not assigned!");
+                if (_gameOverRunStatsText == null) throw new InvalidOperationException("gameOverRunStatsText is not assigned!");
+                if (_victoryRunStatsText == null) throw new InvalidOperationException("victoryRunStatsText is not assigned!");
+                if (_gameOverRestartButton == null) throw new InvalidOperationException("gameOverRestartButton is not assigned!");
+                if (_victoryRestartButton == null) throw new InvalidOperationException("victoryRestartButton is not assigned!");
 
-                _thresholdCongratulationsOverlay = RequireTransform(root, "ThresholdCongratulationsOverlay").gameObject;
-                _thresholdCongratulationsText = Require<TextMeshProUGUI>(root, "ThresholdCongratulationsOverlay/Panel/Message");
+                if (_thresholdCongratulationsOverlay == null) throw new InvalidOperationException("thresholdCongratulationsOverlay is not assigned!");
+                if (_thresholdCongratulationsText == null) throw new InvalidOperationException("thresholdCongratulationsText is not assigned!");
 
-                _maxPlusWinOverlay = RequireTransform(root, "MaxPlusWinOverlay").gameObject;
-                _winningItemImage = Require<Image>(root, "MaxPlusWinOverlay/WinningItem");
+                if (_maxPlusWinOverlay == null) throw new InvalidOperationException("maxPlusWinOverlay is not assigned!");
+                if (_winningItemImage == null) throw new InvalidOperationException("winningItemImage is not assigned!");
                 _winningItemAnimationPlayer = _winningItemImage.GetComponent<SymbolScoreAnimationPlayer>();
                 if (_winningItemAnimationPlayer == null)
                 {
                     _winningItemAnimationPlayer = _winningItemImage.gameObject.AddComponent<SymbolScoreAnimationPlayer>();
                 }
-                _winningItemNameText = Require<TextMeshProUGUI>(root, "MaxPlusWinOverlay/WinningItemName");
-                _maxPlusWinTitleText = Require<TextMeshProUGUI>(root, "MaxPlusWinOverlay/MaxPlusWinTitle");
+                if (_winningItemNameText == null) throw new InvalidOperationException("winningItemNameText is not assigned!");
+                if (_maxPlusWinTitleText == null) throw new InvalidOperationException("maxPlusWinTitleText is not assigned!");
+                
                 _winningItemRect = _winningItemImage.GetComponent<RectTransform>();
                 _maxPlusWinTitleRect = _maxPlusWinTitleText.GetComponent<RectTransform>();
             }
@@ -723,6 +723,12 @@ namespace SerenaysGambit
 
             if (_lever != null)
             {
+                bool isOverlayShowing = (_victoryOverlay != null && _victoryOverlay.activeSelf) ||
+                                       (_gameOverOverlay != null && _gameOverOverlay.activeSelf) ||
+                                       (_gambitOverlay != null) ||
+                                       (_thresholdCongratulationsOverlay != null && _thresholdCongratulationsOverlay.activeSelf) ||
+                                       (_maxPlusWinOverlay != null && _maxPlusWinOverlay.activeSelf);
+                _lever.gameObject.SetActive(_state.Phase == RunPhase.Playing && !isOverlayShowing);
                 _lever.IsAvailable = _state.Phase == RunPhase.Playing && _state.RollsRemaining > 0 && !_isSpinAnimating;
             }
             _refreshButton.interactable = _state.Phase == RunPhase.Playing && _state.RefreshTickets > 0;
@@ -2412,6 +2418,7 @@ namespace SerenaysGambit
             }
 
             _thresholdCongratulationsOverlay.SetActive(true);
+            RefreshView();
 
             if (panelTransform != null)
             {
@@ -2437,6 +2444,7 @@ namespace SerenaysGambit
             }
 
             _thresholdCongratulationsOverlay.SetActive(false);
+            RefreshView();
         }
 
         private IEnumerator ShowMaxPlusWin(PaylineWin win)
@@ -2482,9 +2490,20 @@ namespace SerenaysGambit
                 var overlayColor = overlayImage.color;
                 overlayColor.a = _celebrationAnimationSettings.MaxPlusOverlayOpacity;
                 overlayImage.color = overlayColor;
+                overlayImage.raycastTarget = true;
             }
 
+            var isSkipped = false;
+            var button = _maxPlusWinOverlay.GetComponent<Button>();
+            if (button == null)
+            {
+                button = _maxPlusWinOverlay.AddComponent<Button>();
+            }
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => isSkipped = true);
+
             _maxPlusWinOverlay.SetActive(true);
+            RefreshView();
 
             if (_winningItemAnimationPlayer != null)
             {
@@ -2536,9 +2555,21 @@ namespace SerenaysGambit
                 sequence.AppendInterval(maxPlusPunchDuration + _celebrationAnimationSettings.MaxPlusItemHoldDuration);
             }
 
-            yield return sequence.WaitForCompletion();
+            sequence.Play();
 
+            while (sequence.IsPlaying() && !isSkipped)
+            {
+                yield return null;
+            }
+
+            if (isSkipped)
+            {
+                sequence.Kill(true);
+            }
+
+            button.onClick.RemoveAllListeners();
             _maxPlusWinOverlay.SetActive(false);
+            RefreshView();
         }
 
         private Sprite SymbolRotationImage(SymbolKind symbol)
