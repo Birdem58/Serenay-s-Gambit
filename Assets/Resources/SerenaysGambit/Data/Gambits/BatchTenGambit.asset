@@ -14,11 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _kind: 1
   _displayName: Tenfold Batch
-  _description: Forces every spin to use a 10x batch factor and immediately grants ten times the current roll amount.
+  _description: Forces every spin to use a 10x batch factor and immediately grants
+    ten times the current roll amount.
+  _icon: {fileID: 0}
   _accentColor: {r: 0.2, g: 0.6, b: 0.8, a: 1}
   _shortLabel: TB
   _payoutMultiplier: 1
-  _rollMultiplier: 10
+  _rollMultiplier: 5
   _sacrificePercent: 0
   _riskPercent: 0
   _decayPerMiss: 0

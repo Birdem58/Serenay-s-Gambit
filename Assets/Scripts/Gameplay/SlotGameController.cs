@@ -27,6 +27,7 @@ namespace SerenaysGambit
         private readonly Dictionary<GambitKind, GambitItemDefinition> _gambitItemDefinitionsByKind = new Dictionary<GambitKind, GambitItemDefinition>();
         private readonly Dictionary<ShopOfferKind, OwnedUpgradeView> _ownedUpgradeViews = new Dictionary<ShopOfferKind, OwnedUpgradeView>();
         private readonly Dictionary<GambitKind, OwnedUpgradeView> _ownedGambitViews = new Dictionary<GambitKind, OwnedUpgradeView>();
+        private readonly Outline[] _gambitCardOutlines = new Outline[3];
         private RectTransform _ownedGambitsLayout;
         [SerializeField] private GameObject _gambitOverlay;
         [SerializeField] private RectTransform _gambitCardPanel;
@@ -118,6 +119,7 @@ namespace SerenaysGambit
         private string _defaultMaxPlusWinTitle;
         private Coroutine _winSoundCoroutine;
         private bool _isScoringSoundActive;
+        private AudioClip _slotPullClip;
 
         private void Start()
         {
@@ -197,11 +199,17 @@ namespace SerenaysGambit
                 return;
             }
 
-            if (_state.Modifiers.BatchTenGambitCount > 0)
+            int forcedBatch = 0;
+            if (_state.Modifiers.BatchTenThousandGambitCount > 0) forcedBatch = 10000;
+            else if (_state.Modifiers.BatchThousandGambitCount > 0) forcedBatch = 1000;
+            else if (_state.Modifiers.BatchHundredGambitCount > 0) forcedBatch = 100;
+            else if (_state.Modifiers.BatchTenGambitCount > 0) forcedBatch = 10;
+
+            if (forcedBatch > 0)
             {
                 if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Alpha0))
                 {
-                    Spin(10);
+                    Spin(forcedBatch);
                 }
                 return;
             }
@@ -348,6 +356,16 @@ namespace SerenaysGambit
 
         private void StartNewRun()
         {
+            GameObject bgMusicObj = GameObject.Find("BgMusicPlayer");
+            if (bgMusicObj != null)
+            {
+                AudioSource audioSource = bgMusicObj.GetComponent<AudioSource>();
+                if (audioSource != null && !audioSource.isPlaying)
+                {
+                    audioSource.Play();
+                }
+            }
+
             StopWinSound(fade: false);
             ClearRewardTextPool(false);
             ClearOwnedUpgradeViews();
@@ -391,6 +409,20 @@ namespace SerenaysGambit
                 _resultText.text = result.Message;
                 RefreshView();
                 return;
+            }
+
+            if (_slotPullClip == null)
+            {
+                _slotPullClip = Resources.Load<AudioClip>("SlotPull");
+            }
+            if (_slotPullClip != null)
+            {
+                var audioSource = GetComponent<AudioSource>();
+                if (audioSource == null)
+                {
+                    audioSource = gameObject.AddComponent<AudioSource>();
+                }
+                audioSource.PlayOneShot(_slotPullClip);
             }
 
             StartCoroutine(DoSpinAnimation(result, reelStripsBeforeSpin));
@@ -557,11 +589,13 @@ namespace SerenaysGambit
             {
                 RefreshEndScreenStats();
                 _gameOverOverlay.SetActive(true);
+                StopBackgroundMusic();
             }
             else if (_state.Phase == RunPhase.Victory)
             {
                 RefreshEndScreenStats();
                 _victoryOverlay.SetActive(true);
+                StopBackgroundMusic();
             }
             else if (result.ThresholdCleared)
             {
@@ -720,6 +754,16 @@ namespace SerenaysGambit
                     if (_gambitCardIcons[gambitCardIndex] == null) throw new InvalidOperationException("gambitCardIcons[" + gambitCardIndex + "] is null!");
                     if (_gambitCardTitleTexts[gambitCardIndex] == null) throw new InvalidOperationException("gambitCardTitleTexts[" + gambitCardIndex + "] is null!");
                     if (_gambitCardDescriptionTexts[gambitCardIndex] == null) throw new InvalidOperationException("gambitCardDescriptionTexts[" + gambitCardIndex + "] is null!");
+
+                    var outline = _gambitCardButtons[gambitCardIndex].GetComponent<Outline>();
+                    if (outline == null)
+                    {
+                        outline = _gambitCardButtons[gambitCardIndex].gameObject.AddComponent<Outline>();
+                    }
+
+                    outline.effectDistance = new Vector2(3f, 3f);
+                    outline.useGraphicAlpha = false;
+                    _gambitCardOutlines[gambitCardIndex] = outline;
                 }
             }
             catch (InvalidOperationException exception)
@@ -801,22 +845,28 @@ namespace SerenaysGambit
             RefreshOwnedUpgradeViews();
             _isFirstRefresh = false;
 
-            if (_state.Modifiers.BatchTenGambitCount > 0)
+            int forcedBatch = 0;
+            if (_state.Modifiers.BatchTenThousandGambitCount > 0) forcedBatch = 10000;
+            else if (_state.Modifiers.BatchThousandGambitCount > 0) forcedBatch = 1000;
+            else if (_state.Modifiers.BatchHundredGambitCount > 0) forcedBatch = 100;
+            else if (_state.Modifiers.BatchTenGambitCount > 0) forcedBatch = 10;
+
+            if (forcedBatch > 0)
             {
-                _currentBatchFactor = 10;
+                _currentBatchFactor = forcedBatch;
                 _spin1xButton.image.color = _buttonNormalColor;
                 _spin5xButton.image.color = _buttonNormalColor;
-                _spin10xButton.image.color = _buttonSelectedColor;
-                _spin100xButton.image.color = _buttonNormalColor;
-                _spin1000xButton.image.color = _buttonNormalColor;
-                _spin10000xButton.image.color = _buttonNormalColor;
+                _spin10xButton.image.color = forcedBatch == 10 ? _buttonSelectedColor : _buttonNormalColor;
+                _spin100xButton.image.color = forcedBatch == 100 ? _buttonSelectedColor : _buttonNormalColor;
+                _spin1000xButton.image.color = forcedBatch == 1000 ? _buttonSelectedColor : _buttonNormalColor;
+                _spin10000xButton.image.color = forcedBatch == 10000 ? _buttonSelectedColor : _buttonNormalColor;
 
                 _spin1xButton.interactable = false;
                 _spin5xButton.interactable = false;
-                _spin10xButton.interactable = _state.Phase == RunPhase.Playing && !_isSpinAnimating;
-                _spin100xButton.interactable = false;
-                _spin1000xButton.interactable = false;
-                _spin10000xButton.interactable = false;
+                _spin10xButton.interactable = forcedBatch == 10 && _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+                _spin100xButton.interactable = forcedBatch == 100 && _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+                _spin1000xButton.interactable = forcedBatch == 1000 && _state.Phase == RunPhase.Playing && !_isSpinAnimating;
+                _spin10000xButton.interactable = forcedBatch == 10000 && _state.Phase == RunPhase.Playing && !_isSpinAnimating;
             }
             else
             {
@@ -1110,6 +1160,11 @@ namespace SerenaysGambit
                 case GambitKind.BatchTen: return "TB";
                 case GambitKind.Kiss1000x: return "K1K";
                 case GambitKind.CigaretteDecay: return "CD";
+                case GambitKind.BatchHundred: return "HB";
+                case GambitKind.BatchThousand: return "KB";
+                case GambitKind.BatchTenThousand: return "TKB";
+                case GambitKind.CigaretteSkip: return "CS";
+                case GambitKind.AbsolutPoisoning: return "AP";
                 default: return "?";
             }
         }
@@ -1122,8 +1177,22 @@ namespace SerenaysGambit
                 case GambitKind.BatchTen: return new Color(0.2f, 0.6f, 0.8f, 1f);
                 case GambitKind.Kiss1000x: return new Color(0.7f, 0.3f, 0.85f, 1f);
                 case GambitKind.CigaretteDecay: return new Color(0.95f, 0.65f, 0.1f, 1f);
+                case GambitKind.BatchHundred: return new Color(0.2f, 0.7f, 0.7f, 1f);
+                case GambitKind.BatchThousand: return new Color(0.3f, 0.4f, 0.85f, 1f);
+                case GambitKind.BatchTenThousand: return new Color(0.85f, 0.2f, 0.75f, 1f);
+                case GambitKind.CigaretteSkip: return new Color(0.9f, 0.45f, 0.2f, 1f);
+                case GambitKind.AbsolutPoisoning: return new Color(0.15f, 0.65f, 0.15f, 1f);
                 default: return new Color(0.5f, 0.5f, 0.5f, 1f);
             }
+        }
+
+        private static Color GambitCardBackgroundColor(Color accentColor)
+        {
+            // Keep one shared card treatment while allowing every gambit to carry its own hue.
+            var neutralCardColor = new Color(0.045f, 0.055f, 0.09f, 1f);
+            var backgroundColor = Color.Lerp(neutralCardColor, accentColor, 0.48f);
+            backgroundColor.a = 1f;
+            return backgroundColor;
         }
 
         private void ClearOwnedUpgradeViews()
@@ -1219,7 +1288,11 @@ namespace SerenaysGambit
                     ? definition.AccentColor
                     : definition == null ? Color.gray : GambitFallbackColor(definition.Kind);
 
-                _gambitCardAccents[i].color = new Color(cardColor.r, cardColor.g, cardColor.b, 0.35f);
+                _gambitCardAccents[i].color = GambitCardBackgroundColor(cardColor);
+                if (_gambitCardOutlines[i] != null)
+                {
+                    _gambitCardOutlines[i].effectColor = new Color(cardColor.r, cardColor.g, cardColor.b, 0.92f);
+                }
                 _gambitCardIcons[i].sprite = definition == null ? null : definition.Icon;
                 _gambitCardIcons[i].gameObject.SetActive(_gambitCardIcons[i].sprite != null);
                 _gambitCardTitleTexts[i].text = title;
@@ -1241,7 +1314,7 @@ namespace SerenaysGambit
             }
 
             _state.Modifiers.AddGambit(definition.Kind);
-            if (definition.Kind == GambitKind.BatchTen)
+            if (definition.Kind == GambitKind.BatchTen || definition.Kind == GambitKind.BatchHundred || definition.Kind == GambitKind.BatchThousand || definition.Kind == GambitKind.BatchTenThousand)
             {
                 var gambitConfig = _state.Modifiers.GambitConfig(definition.Kind);
                 var rollMultiplier = gambitConfig == null ? Math.Max(1, definition.RollMultiplier) : gambitConfig.RollMultiplier;
@@ -1787,6 +1860,19 @@ namespace SerenaysGambit
                 {
                     audioSource.Stop();
                     audioSource.volume = 1f;
+                }
+            }
+        }
+
+        private void StopBackgroundMusic()
+        {
+            GameObject bgMusicObj = GameObject.Find("BgMusicPlayer");
+            if (bgMusicObj != null)
+            {
+                AudioSource audioSource = bgMusicObj.GetComponent<AudioSource>();
+                if (audioSource != null)
+                {
+                    audioSource.Stop();
                 }
             }
         }

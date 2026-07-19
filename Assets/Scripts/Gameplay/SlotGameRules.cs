@@ -35,7 +35,12 @@ namespace SerenaysGambit
         Absolut,
         BatchTen,
         Kiss1000x,
-        CigaretteDecay
+        CigaretteDecay,
+        BatchHundred,
+        BatchThousand,
+        BatchTenThousand,
+        CigaretteSkip,
+        AbsolutPoisoning
     }
 
     public enum ThresholdLevel
@@ -490,7 +495,12 @@ namespace SerenaysGambit
                 { GambitKind.Absolut, new GambitItemConfig(payoutMultiplier: 10, sacrificePercent: 25) },
                 { GambitKind.BatchTen, new GambitItemConfig(rollMultiplier: 10) },
                 { GambitKind.Kiss1000x, new GambitItemConfig(payoutMultiplier: 1000, riskPercent: 15) },
-                { GambitKind.CigaretteDecay, new GambitItemConfig(payoutMultiplier: 5, decayPerMiss: 1) }
+                { GambitKind.CigaretteDecay, new GambitItemConfig(payoutMultiplier: 5, decayPerMiss: 1) },
+                { GambitKind.BatchHundred, new GambitItemConfig(rollMultiplier: 10) },
+                { GambitKind.BatchThousand, new GambitItemConfig(rollMultiplier: 15) },
+                { GambitKind.BatchTenThousand, new GambitItemConfig(rollMultiplier: 20) },
+                { GambitKind.CigaretteSkip, new GambitItemConfig() },
+                { GambitKind.AbsolutPoisoning, new GambitItemConfig(payoutMultiplier: 10) }
             };
         }
     }
@@ -564,6 +574,36 @@ namespace SerenaysGambit
             set { SetGambitCount(GambitKind.CigaretteDecay, value); }
         }
 
+        public int BatchHundredGambitCount
+        {
+            get { return GambitCount(GambitKind.BatchHundred); }
+            set { SetGambitCount(GambitKind.BatchHundred, value); }
+        }
+
+        public int BatchThousandGambitCount
+        {
+            get { return GambitCount(GambitKind.BatchThousand); }
+            set { SetGambitCount(GambitKind.BatchThousand, value); }
+        }
+
+        public int BatchTenThousandGambitCount
+        {
+            get { return GambitCount(GambitKind.BatchTenThousand); }
+            set { SetGambitCount(GambitKind.BatchTenThousand, value); }
+        }
+
+        public int CigaretteSkipGambitCount
+        {
+            get { return GambitCount(GambitKind.CigaretteSkip); }
+            set { SetGambitCount(GambitKind.CigaretteSkip, value); }
+        }
+
+        public int AbsolutPoisoningGambitCount
+        {
+            get { return GambitCount(GambitKind.AbsolutPoisoning); }
+            set { SetGambitCount(GambitKind.AbsolutPoisoning, value); }
+        }
+
         public int GambitCount(GambitKind kind)
         {
             int count;
@@ -626,23 +666,28 @@ namespace SerenaysGambit
             get 
             {
                 long baseRolls = (long)_config.BaseRolls * BaseRollMultiplier + TemporaryFreeSpins;
-                if (BatchTenGambitCount > 0)
-                {
-                    var batchMultiplierConfig = GambitConfig(GambitKind.BatchTen);
-                    var batchMultiplier = batchMultiplierConfig == null ? 10 : batchMultiplierConfig.RollMultiplier;
-                    for (int i = 0; i < BatchTenGambitCount; i++)
-                    {
-                        if (baseRolls > int.MaxValue / batchMultiplier)
-                        {
-                            return int.MaxValue;
-                        }
-
-                        baseRolls *= batchMultiplier;
-                    }
-                }
-
+                baseRolls = ApplyBatchMultiplier(baseRolls, GambitKind.BatchTen, BatchTenGambitCount);
+                baseRolls = ApplyBatchMultiplier(baseRolls, GambitKind.BatchHundred, BatchHundredGambitCount);
+                baseRolls = ApplyBatchMultiplier(baseRolls, GambitKind.BatchThousand, BatchThousandGambitCount);
+                baseRolls = ApplyBatchMultiplier(baseRolls, GambitKind.BatchTenThousand, BatchTenThousandGambitCount);
                 return baseRolls >= int.MaxValue ? int.MaxValue : (int)baseRolls;
             }
+        }
+
+        private long ApplyBatchMultiplier(long currentRolls, GambitKind kind, int count)
+        {
+            if (count <= 0) return currentRolls;
+            var config = GambitConfig(kind);
+            var multiplier = config == null ? 10 : config.RollMultiplier;
+            for (int i = 0; i < count; i++)
+            {
+                if (currentRolls > int.MaxValue / multiplier)
+                {
+                    return int.MaxValue;
+                }
+                currentRolls *= multiplier;
+            }
+            return currentRolls;
         }
 
         public int SymbolValue(SymbolKind symbol)
@@ -855,8 +900,10 @@ namespace SerenaysGambit
             Modifiers = new RunModifiers(Config);
             Shop = new ShopState();
             Stats = new RunStats(ThresholdLevel);
+            ConsecutiveAbsolutWins = 0;
         }
 
+        public int ConsecutiveAbsolutWins { get; set; }
         public int ThresholdLevel { get; internal set; }
         public BigInteger CashKurus { get; set; }
         public int RollsRemaining { get; set; }
@@ -1421,13 +1468,50 @@ namespace SerenaysGambit
                 score.ApplyPayoutMultiplier(new BigInteger(GameBalance.MaxPlusWinPayoutMultiplier));
             }
 
+            bool hasAbsolutWin = false;
+            foreach (var win in score.Wins)
+            {
+                if (win.ResolvedSymbol == SymbolKind.Absolut)
+                {
+                    hasAbsolutWin = true;
+                    break;
+                }
+            }
+
+            bool alcoholPoisoningTriggered = false;
+            if (state.Modifiers.AbsolutPoisoningGambitCount > 0)
+            {
+                if (hasAbsolutWin)
+                {
+                    score.ApplyPayoutMultiplier(10);
+                    state.ConsecutiveAbsolutWins++;
+                }
+                else
+                {
+                    state.ConsecutiveAbsolutWins = 0;
+                }
+
+                if (state.ConsecutiveAbsolutWins >= 3)
+                {
+                    alcoholPoisoningTriggered = true;
+                    state.ConsecutiveAbsolutWins = 0;
+                }
+            }
+
             state.Stats.RecordSpin(score);
             state.CashKurus += score.PayoutKurus;
+
+            if (alcoholPoisoningTriggered)
+            {
+                state.CashKurus = BigInteger.Zero;
+            }
 
             var result = new SpinResult
             {
                 Accepted = true,
-                Message = score.Wins.Count == 0 ? "No matching paylines." : "Winning paylines resolved.",
+                Message = alcoholPoisoningTriggered
+                    ? "Alcohol Poisoning! Lose all cash to hospital bills."
+                    : (score.Wins.Count == 0 ? "No matching paylines." : "Winning paylines resolved."),
                 Grid = grid,
                 Score = score,
                 MaxPlusWin = maxPlusWinTriggered ? score.MaxPlusWin : null,
@@ -1529,13 +1613,39 @@ namespace SerenaysGambit
                 }
             }
 
+            bool cigaretteSkipTriggered = false;
+            if (state.Modifiers.CigaretteSkipGambitCount > 0)
+            {
+                int cigaretteWins = 0;
+                foreach (var win in score.Wins)
+                {
+                    if (win.ResolvedSymbol == SymbolKind.Cigarette)
+                    {
+                        cigaretteWins++;
+                    }
+                }
+
+                if (cigaretteWins >= 3)
+                {
+                    state.CashKurus += state.CurrentTargetKurus;
+                    cigaretteSkipTriggered = true;
+                }
+            }
+
             if (TrySettleThreshold(state))
             {
                 result.ThresholdCleared = true;
                 result.CarriedRollsToNextThreshold = state.Phase == RunPhase.Playing
                     ? Math.Max(0, state.RollsRemaining - state.Modifiers.StartingRolls)
                     : 0;
-                result.Message = state.Phase == RunPhase.Victory ? "All ten thresholds cleared!" : "Threshold paid. Serenay has new offers.";
+                if (cigaretteSkipTriggered)
+                {
+                    result.Message = "Cigarette Skip! Next threshold reached and Kurus granted!";
+                }
+                else
+                {
+                    result.Message = state.Phase == RunPhase.Victory ? "All ten thresholds cleared!" : "Threshold paid. Serenay has new offers.";
+                }
             }
             else if (ResolveFailureIfOutOfRolls(state, out var lostOrgan))
             {

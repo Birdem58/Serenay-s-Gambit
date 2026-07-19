@@ -259,6 +259,26 @@ namespace SerenaysGambit
             {
                 gameplayContent.SetActive(true); // Show gameplay UI
             }
+
+            if (GameObject.Find("BgMusicPlayer") == null)
+            {
+                GameObject bgMusicObj = new GameObject("BgMusicPlayer");
+                DontDestroyOnLoad(bgMusicObj);
+                AudioSource audioSource = bgMusicObj.AddComponent<AudioSource>();
+                audioSource.clip = Resources.Load<AudioClip>("BgMusic");
+                if (audioSource.clip != null)
+                {
+                    audioSource.volume = 0.5f;
+                    audioSource.loop = true;
+                    audioSource.playOnAwake = false;
+                    audioSource.Play();
+                }
+                else
+                {
+                    Debug.LogWarning("BgMusic clip not found in Resources!");
+                }
+            }
+
             gameObject.SetActive(false); // Disable the intro panel
         }
     }
