@@ -14,6 +14,8 @@ namespace SerenaysGambit
 {
     public sealed class SlotGameController : MonoBehaviour
     {
+        public static event Action OnShopPurchaseSuccess;
+
         private RunService _runService;
         private ShopService _shopService;
         private RunState _state;
@@ -110,6 +112,8 @@ namespace SerenaysGambit
         [SerializeField] private SlotLever _lever;
         [SerializeField] private OwnedUpgradeView _ownedUpgradePrefab;
         private int _currentBatchFactor = 1;
+        private Vector3 _payoutTextBaseScale = Vector3.one;
+        private bool _hasPayoutTextBaseScale;
         private readonly Color _buttonSelectedColor = new Color(1f, 0.29f, 0.26f, 1f); // Tomato red
         private readonly Color _buttonNormalColor = new Color(0.70f, 0.24f, 0.51f, 1f); // Magenta
 
@@ -366,6 +370,7 @@ namespace SerenaysGambit
 
             StopWinSound(fade: false);
             ClearRewardTextPool(false);
+            ResetPayoutTextScale();
             ClearOwnedUpgradeViews();
             ClearOrganViews();
             _isFirstRefresh = true;
@@ -595,8 +600,12 @@ namespace SerenaysGambit
         private void BuyOffer(int index)
         {
             string message;
-            _shopService.TryPurchase(_state, index, out message);
+            bool success = _shopService.TryPurchase(_state, index, out message);
             _resultText.text = message;
+            if (success)
+            {
+                OnShopPurchaseSuccess?.Invoke();
+            }
             RefreshView();
         }
 
@@ -610,6 +619,22 @@ namespace SerenaysGambit
             }
 
             var root = canvas.transform;
+
+            // Resolve the HUD labels from the live hierarchy as well as the serialized
+            // references. Scene layout changes can leave a serialized component
+            // reference stale, which previously stopped BindView before RefreshView
+            // could write the bank, ante, and rolls-left values.
+            _cashText = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/CashText", _cashText);
+            _targetText = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/TargetText", _targetText);
+            _roundText = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/RoundText", _roundText);
+            _rollsText = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/RollsText", _rollsText);
+            _spin1xButton = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin1xButton", _spin1xButton);
+            _spin5xButton = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin5xButton", _spin5xButton);
+            _spin10xButton = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin10xButton", _spin10xButton);
+            _spin100xButton = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin100xButton", _spin100xButton);
+            _spin1000xButton = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin1000xButton", _spin1000xButton);
+            _spin10000xButton = ResolveViewComponent(root, "MainContent/VerticalShelfPanel/BatchControls/ButtonsRow/Spin10000xButton", _spin10000xButton);
+
             try
             {
                 if (_cashText == null) throw new InvalidOperationException("cashText is not assigned!");
@@ -642,6 +667,8 @@ namespace SerenaysGambit
                 _payoutText.fontSizeMin = 8f;
                 _payoutText.fontSizeMax = 20f;
                 _payoutText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
+                _payoutTextBaseScale = _payoutText.transform.localScale;
+                _hasPayoutTextBaseScale = true;
                 if (_resultText == null) throw new InvalidOperationException("resultText is not assigned!");
                 if (_shopWalletText == null) throw new InvalidOperationException("shopWalletText is not assigned!");
                 if (_ownedUpgradesLayout == null) throw new InvalidOperationException("ownedUpgradesLayout is not assigned!");
@@ -2371,8 +2398,37 @@ namespace SerenaysGambit
                 return;
             }
 
+            if (!_hasPayoutTextBaseScale)
+            {
+                _payoutTextBaseScale = _payoutText.transform.localScale;
+                _hasPayoutTextBaseScale = true;
+            }
+
+            var payoutTransform = _payoutText.transform;
+            payoutTransform.DOKill();
+            payoutTransform.localScale = _payoutTextBaseScale;
+
+            var punch = payoutTransform.DOPunchScale(
+                _payoutTextBaseScale * 0.05f,
+                Mathf.Max(0.08f, MultiplierStepDuration),
+                1,
+                0.5f);
+            punch.OnComplete(delegate { payoutTransform.localScale = _payoutTextBaseScale; });
+            punch.OnKill(delegate { payoutTransform.localScale = _payoutTextBaseScale; });
+        }
+
+        private void ResetPayoutTextScale()
+        {
+            if (_payoutText == null)
+            {
+                return;
+            }
+
             _payoutText.transform.DOKill();
-            _payoutText.transform.DOPunchScale(Vector3.one * 0.05f, Mathf.Max(0.08f, MultiplierStepDuration), 1, 0.5f);
+            if (_hasPayoutTextBaseScale)
+            {
+                _payoutText.transform.localScale = _payoutTextBaseScale;
+            }
         }
 
         private void ReturnRewardText(GameObject rewardObject)
@@ -2500,6 +2556,26 @@ namespace SerenaysGambit
 
                 textElement.enableWordWrapping = true;
             }
+        }
+
+        private static T ResolveViewComponent<T>(Transform root, string path, T fallback) where T : Component
+        {
+            var target = root.Find(path);
+            if (target != null)
+            {
+                var component = target.GetComponent<T>();
+                if (component == null)
+                {
+                    component = target.GetComponentInChildren<T>(true);
+                }
+
+                if (component != null)
+                {
+                    return component;
+                }
+            }
+
+            return fallback;
         }
 
         private static T Require<T>(Transform root, string path) where T : Component
