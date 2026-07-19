@@ -33,6 +33,7 @@ namespace SerenaysGambit
         private bool _isTyping = false;
         private string _targetText = "";
         private bool _isTransitioning = false;
+        private RenderTexture _videoRenderTexture;
 
         private void Start()
         {
@@ -72,6 +73,11 @@ namespace SerenaysGambit
                 if (characterPlaceholder != null) characterPlaceholder.gameObject.SetActive(false);
                 videoRawImage.gameObject.SetActive(true);
 
+                _videoRenderTexture = new RenderTexture((int)videoPlayer.clip.width, (int)videoPlayer.clip.height, 0);
+                videoPlayer.renderMode = VideoRenderMode.RenderTexture;
+                videoPlayer.targetTexture = _videoRenderTexture;
+                videoRawImage.texture = _videoRenderTexture;
+
                 _isVideoPlaying = true;
                 videoPlayer.prepareCompleted += OnVideoPrepared;
                 videoPlayer.loopPointReached += OnVideoFinished;
@@ -87,10 +93,6 @@ namespace SerenaysGambit
         private void OnVideoPrepared(VideoPlayer vp)
         {
             vp.prepareCompleted -= OnVideoPrepared;
-            if (videoRawImage != null)
-            {
-                videoRawImage.texture = vp.texture;
-            }
             vp.Play();
         }
 
@@ -101,13 +103,25 @@ namespace SerenaysGambit
                 videoPlayer.prepareCompleted -= OnVideoPrepared;
                 videoPlayer.loopPointReached -= OnVideoFinished;
                 videoPlayer.Stop();
+                videoPlayer.targetTexture = null;
+            }
+
+            if (_videoRenderTexture != null)
+            {
+                _videoRenderTexture.Release();
+                Destroy(_videoRenderTexture);
+                _videoRenderTexture = null;
             }
 
             if (_isVideoPlaying)
             {
                 _isVideoPlaying = false;
 
-                if (videoRawImage != null) videoRawImage.gameObject.SetActive(false);
+                if (videoRawImage != null)
+                {
+                    videoRawImage.texture = null;
+                    videoRawImage.gameObject.SetActive(false);
+                }
                 if (dialogueText != null) dialogueText.gameObject.SetActive(true);
                 if (characterPlaceholder != null) characterPlaceholder.gameObject.SetActive(true);
 
@@ -280,6 +294,16 @@ namespace SerenaysGambit
             }
 
             gameObject.SetActive(false); // Disable the intro panel
+        }
+
+        private void OnDestroy()
+        {
+            if (_videoRenderTexture != null)
+            {
+                _videoRenderTexture.Release();
+                Destroy(_videoRenderTexture);
+                _videoRenderTexture = null;
+            }
         }
     }
 }

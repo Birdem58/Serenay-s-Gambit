@@ -70,7 +70,6 @@ namespace SerenaysGambit
         private readonly List<OwnedUpgradeView> _organViews = new List<OwnedUpgradeView>();
         private readonly Sprite[] _organSprites = new Sprite[GameBalance.OrganCount];
         private bool _isFirstRefresh = true;
-        [SerializeField] private TextMeshProUGUI _ticketsText;
         [SerializeField] private TextMeshProUGUI _payoutText;
         [SerializeField] private TextMeshProUGUI _resultText;
         [SerializeField] private TextMeshProUGUI _shopWalletText;
@@ -108,6 +107,8 @@ namespace SerenaysGambit
         [SerializeField] private TextMeshProUGUI _victoryRunStatsText;
         private Canvas _gameCanvas;
         private RectTransform _rewardTextParent;
+        private GameObject _rootSerenay;
+        private GameObject _shopSerenay;
 
         [SerializeField] private SlotLever _lever;
         [SerializeField] private OwnedUpgradeView _ownedUpgradePrefab;
@@ -122,6 +123,7 @@ namespace SerenaysGambit
         private Coroutine _winSoundCoroutine;
         private bool _isScoringSoundActive;
         private AudioClip _slotPullClip;
+        private AudioClip _dingClip;
 
         private void Start()
         {
@@ -393,6 +395,7 @@ namespace SerenaysGambit
             {
                 _gambitOverlay.SetActive(false);
             }
+            SetSerenayActive(true);
             RefreshEndScreenStats();
             RefreshView();
         }
@@ -483,6 +486,7 @@ namespace SerenaysGambit
                             PunchUpCameraShake(capturedCol);
                         }
                         PunchReelDown(capturedCol);
+                        PlayDingSound();
                     });
                 }
             }
@@ -582,12 +586,14 @@ namespace SerenaysGambit
                 RefreshEndScreenStats();
                 _gameOverOverlay.SetActive(true);
                 StopBackgroundMusic();
+                SetSerenayActive(false);
             }
             else if (_state.Phase == RunPhase.Victory)
             {
                 RefreshEndScreenStats();
                 _victoryOverlay.SetActive(true);
                 StopBackgroundMusic();
+                SetSerenayActive(false);
             }
             else if (result.ThresholdCleared)
             {
@@ -637,6 +643,29 @@ namespace SerenaysGambit
 
             try
             {
+                _rootSerenay = null;
+                var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                var roots = activeScene.GetRootGameObjects();
+                foreach (var rootGO in roots)
+                {
+                    if (rootGO.name == "Serenay")
+                    {
+                        _rootSerenay = rootGO;
+                        break;
+                    }
+                }
+                if (_rootSerenay == null)
+                {
+                    _rootSerenay = GameObject.Find("Serenay");
+                }
+
+                _shopSerenay = null;
+                var shopSerenayTrans = root.Find("MainContent/SerenayShopPanel/Serenay");
+                if (shopSerenayTrans != null)
+                {
+                    _shopSerenay = shopSerenayTrans.gameObject;
+                }
+
                 if (_cashText == null) throw new InvalidOperationException("cashText is not assigned!");
                 if (_targetText == null) throw new InvalidOperationException("targetText is not assigned!");
                 if (_roundText == null) throw new InvalidOperationException("roundText is not assigned!");
@@ -660,7 +689,6 @@ namespace SerenaysGambit
                 organsLayoutGroup.childControlWidth = false;
                 organsLayoutGroup.childControlHeight = false;
 
-                if (_ticketsText == null) throw new InvalidOperationException("ticketsText is not assigned!");
                 if (_payoutText == null) throw new InvalidOperationException("payoutText is not assigned!");
                 _payoutText.richText = true;
                 _payoutText.enableAutoSizing = true;
@@ -843,7 +871,6 @@ namespace SerenaysGambit
             UpdateThresholdBar(_state.CashKurus, _state.CurrentTargetKurus);
             _rollsText.text = FormatSidebarRolls(_state.RollsRemaining);
             RefreshOrganViews(!_isFirstRefresh);
-            _ticketsText.text = "Refresh tickets: " + _state.RefreshTickets;
             _shopWalletText.text = "Your cash: " + MoneyFormatter.FormatTL(_state.CashKurus);
             RefreshOwnedUpgradeViews();
             _isFirstRefresh = false;
@@ -2806,6 +2833,35 @@ namespace SerenaysGambit
                 }
             }
             return null;
+        }
+
+        private void PlayDingSound()
+        {
+            if (_dingClip == null)
+            {
+                _dingClip = Resources.Load<AudioClip>("Ding");
+            }
+            if (_dingClip != null)
+            {
+                var audioSource = GetComponent<AudioSource>();
+                if (audioSource == null)
+                {
+                    audioSource = gameObject.AddComponent<AudioSource>();
+                }
+                audioSource.PlayOneShot(_dingClip);
+            }
+        }
+
+        private void SetSerenayActive(bool active)
+        {
+            if (_rootSerenay != null)
+            {
+                _rootSerenay.SetActive(active);
+            }
+            if (_shopSerenay != null)
+            {
+                _shopSerenay.SetActive(active);
+            }
         }
     }
 }
