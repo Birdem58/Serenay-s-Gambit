@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: IntroDialogue
   m_EditorClassIdentifier: 
   lines:
-  - text: 'have sacrificed everything. My wife, my first child, my second child,
+  - text: 'I have sacrificed everything. My wife, my first child, my second child,
       my third child, my fourth child, '
   - text: my fifth child, my sixth child, my seventh child, my eighth child, my ninth
       child, my tenth child...

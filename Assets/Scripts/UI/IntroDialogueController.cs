@@ -268,7 +268,7 @@ namespace SerenaysGambit
                 audioSource.clip = Resources.Load<AudioClip>("BgMusic");
                 if (audioSource.clip != null)
                 {
-                    audioSource.volume = 0.5f;
+                    audioSource.volume = 0.2f;
                     audioSource.loop = true;
                     audioSource.playOnAwake = false;
                     audioSource.Play();

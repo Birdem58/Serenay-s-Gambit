@@ -27,4 +27,5 @@ MonoBehaviour:
   _maxPlusItemScaleUpDuration: 0.55
   _maxPlusTitleScaleUpDuration: 0.45
   _maxPlusItemHoldDuration: 0.25
+  _maxPlusItemScaleDownDuration: 0.3
   _maxPlusPunchScaleUpAmount: 0.14

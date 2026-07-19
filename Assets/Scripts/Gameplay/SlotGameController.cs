@@ -74,7 +74,6 @@ namespace SerenaysGambit
         [SerializeField] private TextMeshProUGUI _shopWalletText;
         [SerializeField] private RectTransform _ownedUpgradesLayout;
         [SerializeField] private UpgradeTooltip _upgradeTooltip;
-        [SerializeField] private TextMeshProUGUI _refreshLabel;
         [SerializeField] private TextMeshProUGUI[] _offerLabels = new TextMeshProUGUI[3];
         private readonly Image[] _offerIcons = new Image[3];
         [SerializeField] private Button[] _offerButtons = new Button[3];
@@ -92,7 +91,6 @@ namespace SerenaysGambit
         [SerializeField] private Button _spin100xButton;
         [SerializeField] private Button _spin1000xButton;
         [SerializeField] private Button _spin10000xButton;
-        [SerializeField] private Button _refreshButton;
         [SerializeField] private Button _gameOverRestartButton;
         [SerializeField] private Button _victoryRestartButton;
         [SerializeField] private GameObject _gameOverOverlay;
@@ -439,7 +437,6 @@ namespace SerenaysGambit
             _spin100xButton.interactable = false;
             _spin1000xButton.interactable = false;
             _spin10000xButton.interactable = false;
-            _refreshButton.interactable = false;
             for (var i = 0; i < _offerButtons.Length; i++)
             {
                 _offerButtons[i].interactable = false;
@@ -552,11 +549,6 @@ namespace SerenaysGambit
             StopAllScoreAnimations();
             if (result.MaxPlusWin != null)
             {
-                _isScoringSoundActive = true;
-                if (_winSoundCoroutine == null)
-                {
-                    _winSoundCoroutine = StartCoroutine(PlayWinSoundLoop());
-                }
                 yield return StartCoroutine(ShowMaxPlusWin(result.MaxPlusWin));
             }
 
@@ -564,11 +556,6 @@ namespace SerenaysGambit
             {
                 if (_bestThresholdWin != null)
                 {
-                    _isScoringSoundActive = true;
-                    if (_winSoundCoroutine == null)
-                    {
-                        _winSoundCoroutine = StartCoroutine(PlayWinSoundLoop());
-                    }
                     yield return StartCoroutine(ShowMaxPlusWin(_bestThresholdWin, "YOUR MAX PRO PLUS WINNN!!!!! "));
                     _bestThresholdWin = null;
                 }
@@ -609,14 +596,6 @@ namespace SerenaysGambit
         {
             string message;
             _shopService.TryPurchase(_state, index, out message);
-            _resultText.text = message;
-            RefreshView();
-        }
-
-        private void RefreshShop()
-        {
-            string message;
-            _shopService.TryRefresh(_state, out message);
             _resultText.text = message;
             RefreshView();
         }
@@ -684,8 +663,6 @@ namespace SerenaysGambit
                 if (_spin100xButton == null) throw new InvalidOperationException("spin100xButton is not assigned!");
                 if (_spin1000xButton == null) throw new InvalidOperationException("spin1000xButton is not assigned!");
                 if (_spin10000xButton == null) throw new InvalidOperationException("spin10000xButton is not assigned!");
-                if (_refreshButton == null) throw new InvalidOperationException("refreshButton is not assigned!");
-                if (_refreshLabel == null) throw new InvalidOperationException("refreshLabel is not assigned!");
 
                 for (var offerIndex = 0; offerIndex < 3; offerIndex++)
                 {
@@ -779,7 +756,6 @@ namespace SerenaysGambit
             _spin100xButton.onClick.AddListener(delegate { Spin(100); });
             _spin1000xButton.onClick.AddListener(delegate { Spin(1000); });
             _spin10000xButton.onClick.AddListener(delegate { Spin(10000); });
-            _refreshButton.onClick.AddListener(RefreshShop);
             _gameOverRestartButton.onClick.AddListener(StartNewRun);
             _victoryRestartButton.onClick.AddListener(StartNewRun);
             for (var offerIndex = 0; offerIndex < _offerButtons.Length; offerIndex++)
@@ -894,8 +870,6 @@ namespace SerenaysGambit
                 _lever.gameObject.SetActive(_state.Phase == RunPhase.Playing && !isOverlayShowing);
                 _lever.IsAvailable = _state.Phase == RunPhase.Playing && _state.RollsRemaining > 0 && !_isSpinAnimating;
             }
-            _refreshButton.interactable = _state.Phase == RunPhase.Playing && _state.RefreshTickets > 0;
-            _refreshLabel.text = "Refresh shop (" + _state.RefreshTickets + ")";
 
             for (var index = 0; index < _offerButtons.Length; index++)
             {
@@ -2018,7 +1992,7 @@ namespace SerenaysGambit
 
         private string FormatMatchStepDetail(RewardAnimationEvent animationEvent)
         {
-            var detail = "<b><color=#FFA001>" + FormatRewardAmount(animationEvent.BaseAmountKurus) + "</color></b>";
+            var detail = "<b><color=#fdcc45>" + FormatRewardAmount(animationEvent.BaseAmountKurus) + "</color></b>";
             if (animationEvent.TotalHits > 1)
             {
                 detail += " <color=#74D7FF>REPEAT " + (animationEvent.HitIndex + 1) + "/" + animationEvent.TotalHits + "</color>";
@@ -2276,13 +2250,13 @@ namespace SerenaysGambit
 
         private string FormatFloatingReward(BigInteger amountKurus)
         {
-            return "<b><size=22><color=#FFA001>" + FormatRewardAmount(amountKurus) + "</color></size></b>";
+            return "<b><size=22><color=#fdcc45>" + FormatRewardAmount(amountKurus) + "</color></size></b>";
         }
 
         private static string FormatRewardAmount(BigInteger amountKurus)
         {
             var absolute = MoneyFormatter.FormatTL(BigInteger.Abs(amountKurus));
-            return (amountKurus.Sign < 0 ? "- " : "+ ") + absolute.Substring(3) + " TL";
+            return (amountKurus.Sign < 0 ? "- " : "+ ") + absolute;
         }
 
         private void SpawnRewardText(Vector3 worldPosition, string richText, Transform parent, float stepDuration)
@@ -2586,6 +2560,8 @@ namespace SerenaysGambit
 
         private IEnumerator ShowMaxPlusWin(PaylineWin win, string overrideTitle = null)
         {
+            StopWinSound(fade: true);
+
             if (_maxPlusWinOverlay == null || win == null || _celebrationAnimationSettings == null)
             {
                 yield break;
@@ -2676,11 +2652,15 @@ namespace SerenaysGambit
                     Vector3.one * Mathf.Max(1f, _celebrationAnimationSettings.MaxPlusTitleInitialScale),
                     _celebrationAnimationSettings.MaxPlusTitleScaleUpDuration).SetEase(Ease.OutCubic));
             }
+            var maxPlusItemScaleDownDuration = Mathf.Max(
+                0f,
+                _celebrationAnimationSettings.MaxPlusItemScaleDownDuration);
             var maxPlusPunchDuration = Mathf.Max(
                 0.01f,
                 _celebrationAnimationSettings.MaxPlusWinDuration
                     - _celebrationAnimationSettings.MaxPlusItemScaleUpDuration
-                    - _celebrationAnimationSettings.MaxPlusItemHoldDuration);
+                    - _celebrationAnimationSettings.MaxPlusItemHoldDuration
+                    - maxPlusItemScaleDownDuration);
             if (_winningItemRect != null)
             {
                 var maxPlusPunchScale = Mathf.Max(
@@ -2690,10 +2670,19 @@ namespace SerenaysGambit
                     Vector3.one * maxPlusPunchScale,
                     maxPlusPunchDuration).SetEase(Ease.OutCubic));
                 sequence.AppendInterval(_celebrationAnimationSettings.MaxPlusItemHoldDuration);
+                if (maxPlusItemScaleDownDuration > 0f)
+                {
+                    sequence.Append(_winningItemRect.DOScale(
+                        Vector3.one,
+                        maxPlusItemScaleDownDuration).SetEase(Ease.InOutSine));
+                }
             }
             else
             {
-                sequence.AppendInterval(maxPlusPunchDuration + _celebrationAnimationSettings.MaxPlusItemHoldDuration);
+                sequence.AppendInterval(
+                    maxPlusPunchDuration
+                    + _celebrationAnimationSettings.MaxPlusItemHoldDuration
+                    + maxPlusItemScaleDownDuration);
             }
 
             sequence.Play();
